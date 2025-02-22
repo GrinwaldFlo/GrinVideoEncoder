@@ -15,7 +15,10 @@ public static class GlobUtils
 			if (stream.Length > 0)
 				return true;
 		}
-		catch { }
+		catch
+		{
+			// Do nothing
+		}
 		return false;
 	}
 }

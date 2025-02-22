@@ -7,8 +7,6 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
-await VideoProcessorService.FfmpegDownload(builder.Environment.ContentRootPath);
-
 // Add services
 builder.Services.AddHostedService<MainBackgroundService>();
 builder.Services.AddTransient<VideoProcessorService>();
@@ -30,5 +28,5 @@ foreach (var folder in folders.GetChildren())
 
 app.UseStaticFiles();
 app.MapRazorPages()
-	.WithStaticAssets(); ;
-app.Run();
+	.WithStaticAssets();
+await app.RunAsync();

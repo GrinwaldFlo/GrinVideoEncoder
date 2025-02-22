@@ -2,16 +2,15 @@
 
 public class MainBackgroundService : BackgroundService
 {
-	private readonly string _inputPath = string.Empty;
 	private readonly VideoProcessorService _videoProcessor;
 	private readonly FileSystemWatcher _watcher;
 
 	public MainBackgroundService(IConfiguration config, VideoProcessorService videoProcessor)
 	{
 		_videoProcessor = videoProcessor;
-		_inputPath = config["Folders:Input"] ?? throw new Exception("Folders:Input not defined");
+		string inputPath = config["Folders:Input"] ?? throw new Exception("Folders:Input not defined");
 
-		_watcher = new FileSystemWatcher(_inputPath)
+		_watcher = new FileSystemWatcher(inputPath)
 		{
 			EnableRaisingEvents = true,
 			NotifyFilter = NotifyFilters.FileName | NotifyFilters.Size
