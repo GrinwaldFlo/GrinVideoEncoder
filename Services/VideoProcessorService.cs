@@ -38,6 +38,7 @@ public class VideoProcessorService(IAppSettings settings)
 				catch (Exception ex) when (ex.Message.Contains("encoder") || ex.Message.Contains("GPU"))
 				{
 					Log.Warning("{GpuType} GPU encoding failed. Falling back to CPU encoding. Error: {ErrorMessage}", gpuType, ex.Message);
+					videoStream = mediaInfo.VideoStreams.First();
 					await ProcessWithCpu(videoStream, mediaInfo.AudioStreams, filename, token);
 				}
 			}
@@ -150,10 +151,7 @@ public class VideoProcessorService(IAppSettings settings)
 		}
 
 		conversion.OnDataReceived += (sender, args) => Log.Information("FFmpeg [{GpuType} GPU]: {Data}", gpuType, args.Data);
-		var result = await conversion.Start(token);
-
-		if (result.Duration.TotalSeconds < 10)
-			throw new Exception($"{gpuType} GPU encoding failed: {result}");
+		await conversion.Start(token);
 	}
 
 	private static async Task RunFirstPass(IVideoStream videoStream, FileNamer file, CancellationToken token)
@@ -166,13 +164,10 @@ public class VideoProcessorService(IAppSettings settings)
 			.SetOutput(file.TempFirstPassPath);
 
 		conversion.OnDataReceived += (sender, args) => Log.Information("FFmpeg [Pass1]: {Data}", args.Data);
-		var result = await conversion.Start(token);
+		await conversion.Start(token);
 
 		if (File.Exists(file.TempFirstPassPath))
 			File.Delete(file.TempFirstPassPath);
-
-		if (result.Duration.TotalSeconds < 10)
-			throw new Exception($"First pass failed: {result}");
 	}
 
 	private static async Task RunSecondPass(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, FileNamer file, CancellationToken token)
@@ -189,10 +184,7 @@ public class VideoProcessorService(IAppSettings settings)
 		}
 
 		conversion.OnDataReceived += (sender, args) => Log.Information("FFmpeg [Pass2]: {Data}", args.Data);
-		var result = await conversion.Start(token);
-
-		if (result.Duration.TotalSeconds < 10)
-			throw new Exception($"Second pass failed: {result}");
+		await conversion.Start(token);
 	}
 
 	/// <summary>
