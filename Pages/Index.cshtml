@@ -2,20 +2,44 @@
 @model IndexModel
 
 <div class="container">
-    <h1>Video Encoding Monitor</h1>
     <div class="row">
         <div class="col-12">
-            <h3>Processing Logs</h3>
-            <pre>@Model.LogContent</pre>
+            <h3>Processing Logs <span class="badge bg-secondary" id="lastUpdate"></span></h3>
+            <pre id="logContainer" style="white-space: pre-wrap;">@Model.LogContent</pre>
         </div>
     </div>
 </div>
 
 @section Scripts {
     <script>
-        // Auto-refresh every 5 seconds
-        setInterval(() => {
-            window.location.reload();
-        }, 5000);
+        let isUpdating = false;
+
+        async function updateLogs() {
+            if (isUpdating) return;
+            isUpdating = true;
+
+            try {
+                const response = await fetch('?handler=Logs');
+                const logs = await response.text();
+                document.getElementById('logContainer').textContent = logs;
+                document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            } catch (error) {
+                console.error('Error fetching logs:', error);
+            } finally {
+                isUpdating = false;
+            }
+        }
+
+        // Initial load
+        updateLogs();
+
+        // Smooth polling with requestAnimationFrame
+        function poll() {
+            updateLogs().then(() => {
+                setTimeout(() => requestAnimationFrame(poll), 2000);
+            });
+        }
+
+        requestAnimationFrame(poll);
     </script>
 }

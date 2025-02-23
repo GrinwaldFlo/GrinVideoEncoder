@@ -15,6 +15,17 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="publish\**" />
+    <Compile Remove="temp\**" />
+    <Content Remove="publish\**" />
+    <Content Remove="temp\**" />
+    <EmbeddedResource Remove="publish\**" />
+    <EmbeddedResource Remove="temp\**" />
+    <None Remove="publish\**" />
+    <None Remove="temp\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Serilog" Version="4.2.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />

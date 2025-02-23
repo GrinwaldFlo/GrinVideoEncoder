@@ -21,4 +21,22 @@ public static class GlobUtils
 		}
 		return false;
 	}
+
+	public static string EnsureUniqueFilename(string filePath)
+	{
+		string directory = Path.GetDirectoryName(filePath) ?? "";
+
+		Directory.CreateDirectory(directory);
+
+		string fileName = Path.GetFileNameWithoutExtension(filePath);
+		string extension = Path.GetExtension(filePath);
+		string newFilePath = filePath;
+		int i = 1;
+		while (File.Exists(newFilePath))
+		{
+			newFilePath = Path.Combine(directory, $"{fileName} ({i}){extension}");
+			i++;
+		}
+		return newFilePath;
+	}
 }

@@ -4,51 +4,9 @@ using static GrinVideoEncoder.Utils.GpuDetector;
 
 namespace GrinVideoEncoder.Services;
 
-public class VideoProcessorService
+public class VideoProcessorService(IAppSettings settings)
 {
-	private readonly string _failedPath = string.Empty;
-	private readonly string _outputPath = string.Empty;
-	private readonly string _processingPath = string.Empty;
-	private readonly string _tempPath = string.Empty;
-
-	public VideoProcessorService(IConfiguration config)
-	{
-		try
-		{
-			_processingPath = config["Folders:Processing"] ?? throw new Exception("Folders:Processing not defined");
-			_tempPath = config["Folders:Temp"] ?? throw new Exception("Folders:Temp not defined");
-			_outputPath = config["Folders:Output"] ?? throw new Exception("Folders:Output not defined");
-			_failedPath = config["Folders:Failed"] ?? throw new Exception("Folders:Failed not defined");
-		}
-		catch (Exception ex)
-		{
-			Log.Error(ex, "Failed to initialize VideoProcessorService");
-		}
-
-		ReadyToProcess = true;
-	}
-
-	public bool ReadyToProcess { get; private set; } = false;
-
-	/// <summary>
-	/// Downloads FFmpeg if not exists
-	/// </summary>
-	/// <returns></returns>
-	public async Task FfmpegDownload()
-	{
-		// Download FFmpeg if not exists
-		string ffmpegPath = Path.Combine(_tempPath, "ffmpeg");
-		if (!Directory.Exists(ffmpegPath))
-		{
-			Directory.CreateDirectory(ffmpegPath);
-		}
-		FFmpeg.SetExecutablesPath(ffmpegPath);
-
-		if (!File.Exists(Path.Combine(ffmpegPath, "ffmpeg.exe")))
-		{
-			await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official, ffmpegPath);
-		}
-	}
+	public bool ReadyToProcess { get; private set; } = true;
 
 	public async Task ProcessVideo(string filePath, CancellationToken token)
 	{
@@ -58,16 +16,12 @@ public class VideoProcessorService
 		await FfmpegDownload();
 
 		var gpuType = GpuDetector.DetectGpuVendor();
-
-		string? processingPath = null;
-		string? outputPath = null;
-		string? statsPath = null;
-
+		FileNamer filename = new(settings, filePath);
 		try
 		{
-			(processingPath, outputPath, statsPath) = await PrepareProcessing(filePath);
+			await PrepareProcessing(filename);
 
-			var mediaInfo = await FFmpeg.GetMediaInfo(processingPath, token);
+			var mediaInfo = await FFmpeg.GetMediaInfo(filename.ProcessingPath, token);
 			var videoStream = mediaInfo.VideoStreams.FirstOrDefault()
 				?? throw new Exception("No video stream found");
 
@@ -75,33 +29,60 @@ public class VideoProcessorService
 			{
 				try
 				{
-					await ProcessWithGpu(videoStream, mediaInfo.AudioStreams, outputPath, gpuType, token);
+					await ProcessWithGpu(videoStream, mediaInfo.AudioStreams, filename.TempPath, gpuType, token);
 				}
 				catch (Exception ex) when (ex.Message.Contains("encoder") || ex.Message.Contains("GPU"))
 				{
 					Log.Warning("{GpuType} GPU encoding failed. Falling back to CPU encoding. Error: {ErrorMessage}", gpuType, ex.Message);
-					await ProcessWithCpu(videoStream, mediaInfo.AudioStreams, outputPath, statsPath, token);
+					await ProcessWithCpu(videoStream, mediaInfo.AudioStreams, filename, token);
 				}
 			}
 			else
 			{
-				await ProcessWithCpu(videoStream, mediaInfo.AudioStreams, outputPath, statsPath, token);
+				await ProcessWithCpu(videoStream, mediaInfo.AudioStreams, filename, token);
 			}
 
-			FinalizeProcessing(outputPath);
+			FinalizeProcessing(filename);
 		}
 		catch (Exception ex)
 		{
-			HandleProcessingError(ex, processingPath, outputPath);
+			HandleProcessingError(ex, filename);
 		}
 		finally
 		{
-			Cleanup(statsPath);
+			// WIP
 		}
 	}
 
+	private static void FinalizeProcessing(FileNamer filename)
+	{
+		File.Move(filename.TempPath, filename.OutputPath);
+		File.Move(filename.ProcessingPath, filename.TrashPath);
+		Log.Information("Successfully processed {FinalPath}", filename.OutputPath);
+	}
+
+	private static void HandleProcessingError(Exception ex, FileNamer file)
+	{
+		Log.Error(ex, "Processing error");
+		if (File.Exists(file.TempPath))
+			File.Delete(file.TempPath);
+		if (File.Exists(file.ProcessingPath))
+		{
+			File.Move(file.ProcessingPath, file.FailedPath, true);
+		}
+	}
+
+	private static async Task PrepareProcessing(FileNamer file)
+	{
+		Log.Information("Waiting {FilePath} is ready", file.InputPath);
+		await WaitForFile(file.InputPath, CancellationToken.None);
+
+		File.Move(file.InputPath, file.ProcessingPath);
+		Log.Information("Started processing {ProcessingPath}", file.ProcessingPath);
+	}
+
 	private static async Task ProcessWithGpu(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, string outputPath,
-		GpuVendor gpuType, CancellationToken token)
+			GpuVendor gpuType, CancellationToken token)
 	{
 		videoStream.SetBitrate(3000000);
 
@@ -151,18 +132,13 @@ public class VideoProcessorService
 			throw new Exception($"{gpuType} GPU encoding failed: {result}");
 	}
 
-	private static async Task RunSecondPass(
-		IVideoStream videoStream,
-		IEnumerable<IAudioStream> audioStreams,
-		string outputPath,
-		string statsPath,
-		CancellationToken token)
+	private static async Task RunSecondPass(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, FileNamer file, CancellationToken token)
 	{
 		var conversion = FFmpeg.Conversions.New()
 			.AddStream(videoStream)
 			.AddParameter($"-pass 2")
-			.AddParameter($"-passlogfile \"{statsPath}\"")
-			.SetOutput(outputPath);
+			.AddParameter($"-passlogfile \"{file.StatFileName}\"")
+			.SetOutput(file.TempPath);
 
 		foreach (var audioStream in audioStreams)
 		{
@@ -176,6 +152,12 @@ public class VideoProcessorService
 			throw new Exception($"Second pass failed: {result}");
 	}
 
+	/// <summary>
+	/// Waits for the file to be ready for reading.
+	/// </summary>
+	/// <param name="filePath"></param>
+	/// <param name="token"></param>
+	/// <returns></returns>
 	private static async Task WaitForFile(string filePath, CancellationToken token)
 	{
 		while (!token.IsCancellationRequested)
@@ -195,95 +177,47 @@ public class VideoProcessorService
 		}
 	}
 
-	private void Cleanup(string? statsPath)
+	/// <summary>
+	/// Downloads FFmpeg if not exists
+	/// </summary>
+	/// <returns></returns>
+	private async Task FfmpegDownload()
 	{
-		if (statsPath != null && File.Exists(statsPath))
-			File.Delete(statsPath);
-		CleanupTempFiles();
-	}
-
-	private void CleanupTempFiles()
-	{
-		try
+		string ffmpegPath = Path.Combine(settings.TempPath, "ffmpeg");
+		if (!Directory.Exists(ffmpegPath))
 		{
-			string? tempFolder = _tempPath;
-			foreach (string file in Directory.GetFiles(tempFolder))
-			{
-				File.Delete(file);
-			}
+			Directory.CreateDirectory(ffmpegPath);
 		}
-		catch (Exception ex)
+		FFmpeg.SetExecutablesPath(ffmpegPath);
+
+		if (!File.Exists(Path.Combine(ffmpegPath, "ffmpeg.exe")))
 		{
-			Log.Error(ex, "Temp cleanup failed");
+			await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official, ffmpegPath);
 		}
 	}
-
-	private void FinalizeProcessing(string outputPath)
-	{
-		string finalPath = Path.Combine(_outputPath, Path.GetFileName(outputPath));
-		File.Move(outputPath, finalPath);
-		Log.Information("Successfully processed {FinalPath}", finalPath);
-	}
-
-	private void HandleProcessingError(Exception ex, string? processingPath, string? outputPath)
-	{
-		Log.Error(ex, "Processing error");
-		if (outputPath != null && File.Exists(outputPath))
-			File.Delete(outputPath);
-		if (processingPath != null && File.Exists(processingPath))
-		{
-			string failedPath = Path.Combine(_failedPath, Path.GetFileName(processingPath));
-			File.Move(processingPath, failedPath, true);
-		}
-	}
-
-	private async Task<(string processingPath, string outputPath, string statsPath)> PrepareProcessing(string filePath)
-	{
-		Log.Information("Waiting {FilePath} is ready", filePath);
-		await WaitForFile(filePath, CancellationToken.None);
-
-		string processingPath = Path.Combine(_processingPath, Path.GetFileName(filePath));
-		File.Move(filePath, processingPath);
-
-		string outputFileName = Path.GetFileNameWithoutExtension(filePath) + "_encoded.mp4";
-		string outputPath = Path.Combine(_tempPath, outputFileName);
-		string statsPath = Path.Combine(_tempPath, "x265_stats.log");
-
-		Log.Information("Started processing {ProcessingPath}", processingPath);
-
-		return (processingPath, outputPath, statsPath);
-	}
-
-	private async Task ProcessWithCpu(
-									IVideoStream videoStream,
-		IEnumerable<IAudioStream> audioStreams,
-		string outputPath,
-		string statsPath,
-		CancellationToken token)
+	private async Task ProcessWithCpu(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, FileNamer file, CancellationToken token)
 	{
 		videoStream.SetCodec(VideoCodec.hevc)
 				  .SetBitrate(3000000);
 
-		await RunFirstPass(videoStream, statsPath, token);
-		await RunSecondPass(videoStream, audioStreams, outputPath, statsPath, token);
+		await RunFirstPass(videoStream, file, token);
+		await RunSecondPass(videoStream, audioStreams, file, token);
 	}
 
-	private async Task RunFirstPass(IVideoStream videoStream, string statsPath, CancellationToken token)
+	private async Task RunFirstPass(IVideoStream videoStream, FileNamer file, CancellationToken token)
 	{
-		string nullOutputPath = Path.Combine(_tempPath, "null_output.mp4");
-
 		var conversion = FFmpeg.Conversions.New()
 			.AddStream(videoStream)
 			.AddParameter($"-pass 1")
-			.AddParameter($"-passlogfile \"{statsPath}\"")
+			.AddParameter($"-passlogfile \"{file.StatFileName}\"")
 			.AddParameter("-an")
-			.SetOutput(nullOutputPath);
+			.SetOutput(file.TempFirstPassPath);
 
 		conversion.OnDataReceived += (sender, args) => Log.Information("FFmpeg [Pass1]: {Data}", args.Data);
 		var result = await conversion.Start(token);
 
-		if (File.Exists(nullOutputPath))
-			File.Delete(nullOutputPath);
+		if (File.Exists(file.TempFirstPassPath))
+			File.Delete(file.TempFirstPassPath);
 
 		if (result.Duration.TotalSeconds < 10)
 			throw new Exception($"First pass failed: {result}");
