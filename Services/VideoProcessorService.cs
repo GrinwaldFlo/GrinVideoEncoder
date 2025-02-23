@@ -49,9 +49,15 @@ public class VideoProcessorService(IAppSettings settings)
 			FinalizeProcessing(filename);
 			communication.Status.Status = "Done";
 		}
+		catch (OperationCanceledException)
+		{
+			HandleProcessingError(filename);
+			communication.Status.Status = $"Cancelled";
+			Log.Warning("Encoding cancelled {InputPath}", filename.InputPath);
+		}
 		catch (Exception ex)
 		{
-			HandleProcessingError(ex, filename);
+			HandleProcessingError(filename, ex);
 			communication.Status.Status = $"Failed";
 		}
 		finally
@@ -67,11 +73,14 @@ public class VideoProcessorService(IAppSettings settings)
 		Log.Information("Successfully processed {FinalPath}", filename.OutputPath);
 	}
 
-	private static void HandleProcessingError(Exception ex, FileNamer file)
+	private static void HandleProcessingError(FileNamer file, Exception? ex = null)
 	{
-		Log.Error(ex, "Processing error");
+		if (ex != null)
+			Log.Error(ex, "Processing error");
 		if (File.Exists(file.TempPath))
 			File.Delete(file.TempPath);
+		if (File.Exists(file.TempFirstPassPath))
+			File.Delete(file.TempFirstPassPath);
 		if (File.Exists(file.ProcessingPath))
 		{
 			File.Move(file.ProcessingPath, file.FailedPath, true);

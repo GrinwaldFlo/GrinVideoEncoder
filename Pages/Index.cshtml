@@ -3,10 +3,12 @@
 
 <div class="container">
     <div class="row mt-3">
-        <div class="col-12">
+        <div class="col-12 d-flex justify-content-between align-items-center">
             <h5>Current File: <span id="currentFile">None</span></h5>
-            <span class="badge bg-secondary" id="videoStatus"></span>
-            <button id="cancelButton" class="btn btn-danger" onclick="cancelTask()" disabled>Cancel Task</button>
+            <div>
+                <span class="badge bg-secondary" id="videoStatus"></span>
+                <button id="cancelButton" class="btn btn-danger ms-2" onclick="cancelTask()" disabled>Cancel Task</button>
+            </div>
         </div>
     </div>
     <div class="row">
@@ -50,7 +52,7 @@
             if (!currentTask || !currentTask.isRunning) return;
 
             try {
-                await fetch('?handler=CancelTask', { method: 'POST' });
+                await fetch('?handler=CancelTask');
                 document.getElementById('cancelButton').disabled = true;
             } catch (error) {
                 console.error('Error canceling task:', error);

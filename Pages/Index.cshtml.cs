@@ -30,9 +30,9 @@ public class IndexModel(IAppSettings settings, CommunicationService communicatio
 		return new JsonResult(communication.Status);
 	}
 
-	public IActionResult OnPostCancelTask()
+	public async Task<IActionResult> OnGetCancelTaskAsync()
 	{
-		communication.VideoProcessToken.Cancel();
+		await communication.VideoProcessToken.CancelAsync();
 		return new JsonResult(new { success = true });
 	}
 
