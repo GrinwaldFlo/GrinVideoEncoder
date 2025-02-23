@@ -10,4 +10,7 @@ public class AppSettings : IAppSettings
 	public string TempPath { get; set; } = string.Empty;
 	public string LogPath { get; set; } = string.Empty;
 	public bool ForceCpu { get; set; } = false;
+
+	//<inheritdoc/>
+	public int BitrateKbS { get; set; } = 3000;
 }

@@ -12,4 +12,9 @@ public interface IAppSettings
 	string LogPath { get; set; }
 
 	bool ForceCpu { get; set; }
+
+	/// <summary>
+	/// Bitrate in kilobits per second
+	/// </summary>
+	int BitrateKbS { get; set; }
 }

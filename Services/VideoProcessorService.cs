@@ -25,7 +25,7 @@ public class VideoProcessorService(IAppSettings settings)
 			var videoStream = mediaInfo.VideoStreams.FirstOrDefault()
 				?? throw new Exception("No video stream found");
 
-			if (gpuType is GpuDetector.GpuVendor.Nvidia or GpuDetector.GpuVendor.AMD)
+			if (!settings.ForceCpu && gpuType is GpuDetector.GpuVendor.Nvidia or GpuDetector.GpuVendor.AMD)
 			{
 				try
 				{
@@ -81,19 +81,19 @@ public class VideoProcessorService(IAppSettings settings)
 		Log.Information("Started processing {ProcessingPath}", file.ProcessingPath);
 	}
 
-	private static async Task ProcessWithCpu(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, FileNamer file, CancellationToken token)
+	private async Task ProcessWithCpu(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, FileNamer file, CancellationToken token)
 	{
 		videoStream.SetCodec(VideoCodec.hevc)
-				  .SetBitrate(3000000);
+				  .SetBitrate(settings.BitrateKbS * 1000);
 
 		await RunFirstPass(videoStream, file, token);
 		await RunSecondPass(videoStream, audioStreams, file, token);
 	}
 
-	private static async Task ProcessWithGpu(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, string outputPath,
+	private async Task ProcessWithGpu(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, string outputPath,
 				GpuVendor gpuType, CancellationToken token)
 	{
-		videoStream.SetBitrate(3000000);
+		videoStream.SetBitrate(settings.BitrateKbS * 1000);
 
 		var conversion = FFmpeg.Conversions.New()
 			.AddStream(videoStream);
@@ -109,7 +109,7 @@ public class VideoProcessorService(IAppSettings settings)
 					.AddParameter("-spatial-aq 1")
 					.AddParameter("-temporal-aq 1")
 					.AddParameter("-gpu 0")
-					.AddParameter("-b:v 3M");
+					.AddParameter($"-b:v {settings.BitrateKbS}k");
 				break;
 
 			case GpuVendor.AMD:
@@ -120,7 +120,7 @@ public class VideoProcessorService(IAppSettings settings)
 					.AddParameter("-qp_i 18")
 					.AddParameter("-qp_p 20")
 					.AddParameter("-qp_b 24")
-					.AddParameter("-b:v 3M");
+					.AddParameter($"-b:v {settings.BitrateKbS}k");
 				break;
 
 			default:
