@@ -25,24 +25,6 @@ public class IndexModel(IAppSettings settings) : PageModel
 		return Content(logFile != null ? ReadLastLines(logFile, MAX_LINES) : "No logs available");
 	}
 
-	private string? GetLatestLogFile()
-	{
-		try
-		{
-			if (!Directory.Exists(_logDirectory))
-				return null;
-
-			return new DirectoryInfo(_logDirectory)
-				.GetFiles("*.log")
-				.OrderByDescending(f => f.LastWriteTime)
-				.FirstOrDefault()?.FullName;
-		}
-		catch
-		{
-			return null;
-		}
-	}
-
 	private static string ReadLastLines(string filePath, int maxLines)
 	{
 		try
@@ -67,6 +49,24 @@ public class IndexModel(IAppSettings settings) : PageModel
 		catch
 		{
 			return "Unable to read log file";
+		}
+	}
+
+	private string? GetLatestLogFile()
+	{
+		try
+		{
+			if (!Directory.Exists(_logDirectory))
+				return null;
+
+			return new DirectoryInfo(_logDirectory)
+				.GetFiles("*.log")
+				.OrderByDescending(f => f.LastWriteTime)
+				.FirstOrDefault()?.FullName;
+		}
+		catch
+		{
+			return null;
 		}
 	}
 }

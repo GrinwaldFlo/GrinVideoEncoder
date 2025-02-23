@@ -81,8 +81,17 @@ public class VideoProcessorService(IAppSettings settings)
 		Log.Information("Started processing {ProcessingPath}", file.ProcessingPath);
 	}
 
+	private static async Task ProcessWithCpu(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, FileNamer file, CancellationToken token)
+	{
+		videoStream.SetCodec(VideoCodec.hevc)
+				  .SetBitrate(3000000);
+
+		await RunFirstPass(videoStream, file, token);
+		await RunSecondPass(videoStream, audioStreams, file, token);
+	}
+
 	private static async Task ProcessWithGpu(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, string outputPath,
-			GpuVendor gpuType, CancellationToken token)
+				GpuVendor gpuType, CancellationToken token)
 	{
 		videoStream.SetBitrate(3000000);
 
@@ -130,6 +139,25 @@ public class VideoProcessorService(IAppSettings settings)
 
 		if (result.Duration.TotalSeconds < 10)
 			throw new Exception($"{gpuType} GPU encoding failed: {result}");
+	}
+
+	private static async Task RunFirstPass(IVideoStream videoStream, FileNamer file, CancellationToken token)
+	{
+		var conversion = FFmpeg.Conversions.New()
+			.AddStream(videoStream)
+			.AddParameter($"-pass 1")
+			.AddParameter($"-passlogfile \"{file.StatFileName}\"")
+			.AddParameter("-an")
+			.SetOutput(file.TempFirstPassPath);
+
+		conversion.OnDataReceived += (sender, args) => Log.Information("FFmpeg [Pass1]: {Data}", args.Data);
+		var result = await conversion.Start(token);
+
+		if (File.Exists(file.TempFirstPassPath))
+			File.Delete(file.TempFirstPassPath);
+
+		if (result.Duration.TotalSeconds < 10)
+			throw new Exception($"First pass failed: {result}");
 	}
 
 	private static async Task RunSecondPass(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, FileNamer file, CancellationToken token)
@@ -194,32 +222,5 @@ public class VideoProcessorService(IAppSettings settings)
 		{
 			await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official, ffmpegPath);
 		}
-	}
-	private async Task ProcessWithCpu(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, FileNamer file, CancellationToken token)
-	{
-		videoStream.SetCodec(VideoCodec.hevc)
-				  .SetBitrate(3000000);
-
-		await RunFirstPass(videoStream, file, token);
-		await RunSecondPass(videoStream, audioStreams, file, token);
-	}
-
-	private async Task RunFirstPass(IVideoStream videoStream, FileNamer file, CancellationToken token)
-	{
-		var conversion = FFmpeg.Conversions.New()
-			.AddStream(videoStream)
-			.AddParameter($"-pass 1")
-			.AddParameter($"-passlogfile \"{file.StatFileName}\"")
-			.AddParameter("-an")
-			.SetOutput(file.TempFirstPassPath);
-
-		conversion.OnDataReceived += (sender, args) => Log.Information("FFmpeg [Pass1]: {Data}", args.Data);
-		var result = await conversion.Start(token);
-
-		if (File.Exists(file.TempFirstPassPath))
-			File.Delete(file.TempFirstPassPath);
-
-		if (result.Duration.TotalSeconds < 10)
-			throw new Exception($"First pass failed: {result}");
 	}
 }
