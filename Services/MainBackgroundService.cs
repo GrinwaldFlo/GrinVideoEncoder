@@ -2,16 +2,17 @@
 
 public class MainBackgroundService : BackgroundService
 {
+	private readonly CommunicationService _communication;
 	private readonly IAppSettings _settings;
 	private readonly VideoProcessorService _videoProcessor;
 	private readonly FileSystemWatcher _watcher;
 
-	public MainBackgroundService(IAppSettings settings, VideoProcessorService videoProcessor)
+	public MainBackgroundService(IAppSettings settings, VideoProcessorService videoProcessor, CommunicationService communication)
 	{
 		Directory.CreateDirectory(settings.InputPath);
 		_settings = settings;
 		_videoProcessor = videoProcessor;
-
+		_communication = communication;
 		_watcher = new FileSystemWatcher(settings.InputPath)
 		{
 			EnableRaisingEvents = true,
@@ -29,12 +30,12 @@ public class MainBackgroundService : BackgroundService
 			file = inputDir.GetFiles().OrderByDescending(f => f.LastWriteTime).FirstOrDefault();
 			if (file != null)
 			{
-				await _videoProcessor.ProcessVideo(file.FullName, stoppingToken);
+				await ProcessVideo(file.FullName);
 				await Task.Delay(10000, stoppingToken);
 			}
 		} while (file != null && !stoppingToken.IsCancellationRequested);
 
-		_watcher.Created += async (sender, e) => await _videoProcessor.ProcessVideo(e.FullPath, stoppingToken);
+		_watcher.Created += async (sender, e) => await ProcessVideo(e.FullPath);
 
 		Log.Information("Waiting for new files in {InputPath}", _settings.InputPath);
 		while (!stoppingToken.IsCancellationRequested)
@@ -68,5 +69,11 @@ public class MainBackgroundService : BackgroundService
 				Console.WriteLine($"Failed to delete file {file.FullName}: {ex.Message}");
 			}
 		}
+	}
+
+	private async Task ProcessVideo(string filePath)
+	{
+		_communication.VideoProcessToken = new CancellationTokenSource();
+		await _videoProcessor.ProcessVideo(filePath, _communication);
 	}
 }

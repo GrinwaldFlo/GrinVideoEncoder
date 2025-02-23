@@ -8,11 +8,15 @@ public class VideoProcessorService(IAppSettings settings)
 {
 	public bool ReadyToProcess { get; private set; } = true;
 
-	public async Task ProcessVideo(string filePath, CancellationToken token)
+	public async Task ProcessVideo(string filePath, CommunicationService communication)
 	{
+		var token = communication.VideoProcessToken.Token;
+		communication.Status.Filename = filePath;
 		if (!ReadyToProcess)
 			return;
 
+		communication.Status.Status = "Processing";
+		communication.Status.IsRunning = true;
 		await FfmpegDownload();
 
 		var gpuType = GpuDetector.DetectGpuVendor();
@@ -43,14 +47,16 @@ public class VideoProcessorService(IAppSettings settings)
 			}
 
 			FinalizeProcessing(filename);
+			communication.Status.Status = "Done";
 		}
 		catch (Exception ex)
 		{
 			HandleProcessingError(ex, filename);
+			communication.Status.Status = $"Failed";
 		}
 		finally
 		{
-			// WIP
+			communication.Status.IsRunning = false;
 		}
 	}
 

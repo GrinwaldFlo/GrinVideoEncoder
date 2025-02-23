@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace GrinVideoEncoder.Pages;
 
-public class IndexModel(IAppSettings settings) : PageModel
+public class IndexModel(IAppSettings settings, CommunicationService communication) : PageModel
 {
 	private const int MAX_LINES = 1000;
 	private readonly string _logDirectory = settings.LogPath;
@@ -23,6 +23,17 @@ public class IndexModel(IAppSettings settings) : PageModel
 	{
 		string? logFile = GetLatestLogFile();
 		return Content(logFile != null ? ReadLastLines(logFile, MAX_LINES) : "No logs available");
+	}
+
+	public IActionResult OnGetCurrentTask()
+	{
+		return new JsonResult(communication.Status);
+	}
+
+	public IActionResult OnPostCancelTask()
+	{
+		communication.VideoProcessToken.Cancel();
+		return new JsonResult(new { success = true });
 	}
 
 	private static string ReadLastLines(string filePath, int maxLines)
@@ -70,3 +81,4 @@ public class IndexModel(IAppSettings settings) : PageModel
 		}
 	}
 }
+

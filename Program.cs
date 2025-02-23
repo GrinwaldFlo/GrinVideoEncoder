@@ -19,6 +19,7 @@ builder.Services.AddSingleton<IAppSettings>(appSettings);
 // Add services
 builder.Services.AddHostedService<MainBackgroundService>();
 builder.Services.AddTransient<VideoProcessorService>();
+builder.Services.AddSingleton<CommunicationService>();
 builder.Services.AddRazorPages();
 
 var app = builder.Build();

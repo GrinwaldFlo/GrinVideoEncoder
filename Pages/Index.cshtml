@@ -2,6 +2,13 @@
 @model IndexModel
 
 <div class="container">
+    <div class="row mt-3">
+        <div class="col-12">
+            <h5>Current File: <span id="currentFile">None</span></h5>
+            <span class="badge bg-secondary" id="videoStatus"></span>
+            <button id="cancelButton" class="btn btn-danger" onclick="cancelTask()" disabled>Cancel Task</button>
+        </div>
+    </div>
     <div class="row">
         <div class="col-12">
             <h3>Processing Logs <span class="badge bg-secondary" id="lastUpdate"></span></h3>
@@ -13,6 +20,7 @@
 @section Scripts {
     <script>
         let isUpdating = false;
+        let currentTask = null;
 
         async function updateLogs() {
             if (isUpdating) return;
@@ -23,10 +31,29 @@
                 const logs = await response.text();
                 document.getElementById('logContainer').textContent = logs;
                 document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                // Update current file and task status
+                const taskResponse = await fetch('?handler=CurrentTask');
+                const taskData = await taskResponse.json();
+                currentTask = taskData;
+                document.getElementById('currentFile').textContent = taskData.filename || 'None';
+                document.getElementById('cancelButton').disabled = !taskData.isRunning;
+                document.getElementById('videoStatus').textContent = taskData.status;
             } catch (error) {
-                console.error('Error fetching logs:', error);
+                console.error('Error fetching logs or task status:', error);
             } finally {
                 isUpdating = false;
+            }
+        }
+
+        async function cancelTask() {
+            if (!currentTask || !currentTask.isRunning) return;
+
+            try {
+                await fetch('?handler=CancelTask', { method: 'POST' });
+                document.getElementById('cancelButton').disabled = true;
+            } catch (error) {
+                console.error('Error canceling task:', error);
             }
         }
 
