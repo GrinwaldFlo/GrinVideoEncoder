@@ -1,0 +1,408 @@
+{
+  "settings": {
+    "components": {
+      "code": false,
+      "binaries": false
+    },
+    "targetId": "net10.0",
+    "targetDisplayName": ".NETCoreApp,Version=v10.0"
+  },
+  "analysisStartTime": "2025-12-26T11:01:26.9340861Z",
+  "analysisEndTime": "2025-12-26T11:01:30.7043334Z",
+  "privacyModeHelpUrl": "https://go.microsoft.com/fwlink/?linkid=2270980",
+  "stats": {
+    "summary": {
+      "projects": 1,
+      "issues": 6,
+      "incidents": 10,
+      "effort": 10
+    },
+    "charts": {
+      "severity": {
+        "Mandatory": 2,
+        "Optional": 0,
+        "Potential": 8,
+        "Information": 0
+      },
+      "category": {
+        "NuGet": 1,
+        "Project": 1,
+        "Api": 8
+      }
+    }
+  },
+  "projects": [
+    {
+      "path": "GrinVideoEncoder.csproj",
+      "startingProject": true,
+      "issues": 5,
+      "storyPoints": 10,
+      "properties": {
+        "appName": "GrinVideoEncoder",
+        "projectKind": "AspNetCore",
+        "frameworks": [
+          "net9.0"
+        ],
+        "languages": [
+          "C#"
+        ],
+        "tools": [
+          "MSBuild"
+        ],
+        "isSdkStyle": true,
+        "numberOfFiles": 24,
+        "numberOfCodeFiles": 19,
+        "linesTotal": 915,
+        "linesOfCode": 836,
+        "totalApiScanned": 1751,
+        "minLinesOfCodeToChange": 8,
+        "maxLinesOfCodeToChange": 8
+      },
+      "ruleInstances": [
+        {
+          "incidentId": "ccd8223f-6eca-44d6-8e9a-44d29e3e4422",
+          "ruleId": "NuGet.0002",
+          "projectPath": "GrinVideoEncoder.csproj",
+          "state": "Active",
+          "location": {
+            "snippetModel": {
+              "unrestricted": "System.Management, 9.0.2\n\nRecommendation:\n\nRemove System.Management, and replace with new package System.Management 10.0.1",
+              "protected": "System.Management, 9.0.2\n\nRecommendation:\n\nRemove System.Management, and replace with new package System.Management 10.0.1"
+            },
+            "kind": "File",
+            "path": "GrinVideoEncoder.csproj",
+            "snippet": "System.Management, 9.0.2\n\nRecommendation:\n\nRemove System.Management, and replace with new package System.Management 10.0.1",
+            "protectedSnippet": "System.Management, 9.0.2\n\nRecommendation:\n\nRemove System.Management, and replace with new package System.Management 10.0.1",
+            "label": "System.Management 9.0.2",
+            "properties": {
+              "PackageId": "System.Management",
+              "PackageVersion": "9.0.2",
+              "PackageNewVersion": "10.0.1",
+              "PackageReplacements": null
+            }
+          }
+        },
+        {
+          "incidentId": "2b1878ae-3fd6-47c0-9ad7-34346bb1eb83",
+          "ruleId": "Project.0002",
+          "projectPath": "GrinVideoEncoder.csproj",
+          "state": "Active",
+          "location": {
+            "snippetModel": {
+              "unrestricted": "Current target framework: net9.0\nRecommended target framework: net10.0",
+              "protected": "Current target framework: net9.0\nRecommended target framework: net10.0"
+            },
+            "kind": "File",
+            "path": "GrinVideoEncoder.csproj",
+            "snippet": "Current target framework: net9.0\nRecommended target framework: net10.0",
+            "protectedSnippet": "Current target framework: net9.0\nRecommended target framework: net10.0",
+            "properties": {
+              "CurrentTargetFramework": "net9.0",
+              "RecommendedTargetFramework": "net10.0"
+            }
+          }
+        },
+        {
+          "incidentId": "cad2cfd6-4507-453d-9341-c9667153016d",
+          "ruleId": "Api.0002",
+          "description": "API is available in package System.Management, 8.0.0. Add package reference to System.Management, 8.0.0",
+          "projectPath": "GrinVideoEncoder.csproj",
+          "state": "Active",
+          "location": {
+            "snippetModel": {
+              "unrestricted": "string adapterCompatibility = obj[\u0022AdapterCompatibility\u0022]?.ToString() ?? \u0022\u0022;",
+              "protected": "P:System.Management.ManagementBaseObject.Item(System.String)"
+            },
+            "kind": "File",
+            "path": "Utils\\GpuDetector.cs",
+            "snippet": "string adapterCompatibility = obj[\u0022AdapterCompatibility\u0022]?.ToString() ?? \u0022\u0022;",
+            "protectedSnippet": "P:System.Management.ManagementBaseObject.Item(System.String)",
+            "label": "P:System.Management.ManagementBaseObject.Item(System.String)",
+            "properties": {
+              "PackageId": "System.Management",
+              "PackageNewVersion": "8.0.0"
+            },
+            "line": 27,
+            "column": 4
+          }
+        },
+        {
+          "incidentId": "7b66e7ea-404d-4acf-94c6-7516a90211af",
+          "ruleId": "Api.0002",
+          "description": "API is available in package System.Management, 8.0.0. Add package reference to System.Management, 8.0.0",
+          "projectPath": "GrinVideoEncoder.csproj",
+          "state": "Active",
+          "location": {
+            "snippetModel": {
+              "unrestricted": "string name = obj[\u0022Name\u0022]?.ToString() ?? \u0022\u0022;",
+              "protected": "P:System.Management.ManagementBaseObject.Item(System.String)"
+            },
+            "kind": "File",
+            "path": "Utils\\GpuDetector.cs",
+            "snippet": "string name = obj[\u0022Name\u0022]?.ToString() ?? \u0022\u0022;",
+            "protectedSnippet": "P:System.Management.ManagementBaseObject.Item(System.String)",
+            "label": "P:System.Management.ManagementBaseObject.Item(System.String)",
+            "properties": {
+              "PackageId": "System.Management",
+              "PackageNewVersion": "8.0.0"
+            },
+            "line": 26,
+            "column": 4
+          }
+        },
+        {
+          "incidentId": "c5309481-0dbe-4e7e-9930-5effceb2e808",
+          "ruleId": "Api.0002",
+          "description": "API is available in package System.Management, 8.0.0. Add package reference to System.Management, 8.0.0",
+          "projectPath": "GrinVideoEncoder.csproj",
+          "state": "Active",
+          "location": {
+            "snippetModel": {
+              "unrestricted": "foreach (var obj in searcher.Get().Cast\u003CManagementObject\u003E())\r\n\t\t\t{\r\n\t\t\t\tstring name = obj[\u0022Name\u0022]?.ToString() ?? \u0022\u0022;\r\n\t\t\t\tstring adapterCompatibility = obj[\u0022AdapterCompatibility\u0022]?.ToString() ?? \u0022\u0022;\r\n\r\n\t\t\t\t// Check by manufacturer\r\n\t\t\t\tif (adapterCompatibility.Contains(\u0022NVIDIA\u0022, StringComparison.OrdinalIgnoreCase))\r\n\t\t\t\t\treturn GpuVendor.Nvidia;\r\n\r\n\t\t\t\tif (adapterCompatibility.Contains(\u0022Advanced Micro Devices\u0022, StringComparison.OrdinalIgnoreCase) ||\r\nadapterCompatibility.Contains(\u0022AMD\u0022, StringComparison.OrdinalIgnoreCase))\r\n\t\t\t\t{\r\n\t\t\t\t\treturn GpuVendor.AMD;\r\n\t\t\t\t}\r\n\r\n\t\t\t\tif (adapterCompatibility.Contains(\u0022Intel\u0022, StringComparison.OrdinalIgnoreCase))\r\n\t\t\t\t\treturn GpuVendor.Intel;\r\n\r\n\t\t\t\t// Check by device name if manufacturer wasn\u0027t clear\r\n\t\t\t\tif (name.Contains(\u0022Radeon\u0022, StringComparison.OrdinalIgnoreCase))\r\n\t\t\t\t\treturn GpuVendor.AMD;\r\n\r\n\t\t\t\tif (name.Contains(\u0022GeForce\u0022, StringComparison.OrdinalIgnoreCase) ||\r\n\t\t\t\t\tname.Contains(\u0022Quadro\u0022, StringComparison.OrdinalIgnoreCase))\r\n\t\t\t\t{\r\n\t\t\t\t\treturn GpuVendor.Nvidia;\r\n\t\t\t\t}\r\n\t\t\t}",
+              "protected": "T:System.Management.ManagementObjectCollection"
+            },
+            "kind": "File",
+            "path": "Utils\\GpuDetector.cs",
+            "snippet": "foreach (var obj in searcher.Get().Cast\u003CManagementObject\u003E())\r\n\t\t\t{\r\n\t\t\t\tstring name = obj[\u0022Name\u0022]?.ToString() ?? \u0022\u0022;\r\n\t\t\t\tstring adapterCompatibility = obj[\u0022AdapterCompatibility\u0022]?.ToString() ?? \u0022\u0022;\r\n\r\n\t\t\t\t// Check by manufacturer\r\n\t\t\t\tif (adapterCompatibility.Contains(\u0022NVIDIA\u0022, StringComparison.OrdinalIgnoreCase))\r\n\t\t\t\t\treturn GpuVendor.Nvidia;\r\n\r\n\t\t\t\tif (adapterCompatibility.Contains(\u0022Advanced Micro Devices\u0022, StringComparison.OrdinalIgnoreCase) ||\r\nadapterCompatibility.Contains(\u0022AMD\u0022, StringComparison.OrdinalIgnoreCase))\r\n\t\t\t\t{\r\n\t\t\t\t\treturn GpuVendor.AMD;\r\n\t\t\t\t}\r\n\r\n\t\t\t\tif (adapterCompatibility.Contains(\u0022Intel\u0022, StringComparison.OrdinalIgnoreCase))\r\n\t\t\t\t\treturn GpuVendor.Intel;\r\n\r\n\t\t\t\t// Check by device name if manufacturer wasn\u0027t clear\r\n\t\t\t\tif (name.Contains(\u0022Radeon\u0022, StringComparison.OrdinalIgnoreCase))\r\n\t\t\t\t\treturn GpuVendor.AMD;\r\n\r\n\t\t\t\tif (name.Contains(\u0022GeForce\u0022, StringComparison.OrdinalIgnoreCase) ||\r\n\t\t\t\t\tname.Contains(\u0022Quadro\u0022, StringComparison.OrdinalIgnoreCase))\r\n\t\t\t\t{\r\n\t\t\t\t\treturn GpuVendor.Nvidia;\r\n\t\t\t\t}\r\n\t\t\t}",
+            "protectedSnippet": "T:System.Management.ManagementObjectCollection",
+            "label": "T:System.Management.ManagementObjectCollection",
+            "properties": {
+              "PackageId": "System.Management",
+              "PackageNewVersion": "8.0.0"
+            },
+            "line": 24,
+            "column": 3
+          }
+        },
+        {
+          "incidentId": "0ee02472-235d-4d9b-b300-4dd10c5ec4e5",
+          "ruleId": "Api.0002",
+          "description": "API is available in package System.Management, 8.0.0. Add package reference to System.Management, 8.0.0",
+          "projectPath": "GrinVideoEncoder.csproj",
+          "state": "Active",
+          "location": {
+            "snippetModel": {
+              "unrestricted": "foreach (var obj in searcher.Get().Cast\u003CManagementObject\u003E())\r\n\t\t\t{\r\n\t\t\t\tstring name = obj[\u0022Name\u0022]?.ToString() ?? \u0022\u0022;\r\n\t\t\t\tstring adapterCompatibility = obj[\u0022AdapterCompatibility\u0022]?.ToString() ?? \u0022\u0022;\r\n\r\n\t\t\t\t// Check by manufacturer\r\n\t\t\t\tif (adapterCompatibility.Contains(\u0022NVIDIA\u0022, StringComparison.OrdinalIgnoreCase))\r\n\t\t\t\t\treturn GpuVendor.Nvidia;\r\n\r\n\t\t\t\tif (adapterCompatibility.Contains(\u0022Advanced Micro Devices\u0022, StringComparison.OrdinalIgnoreCase) ||\r\nadapterCompatibility.Contains(\u0022AMD\u0022, StringComparison.OrdinalIgnoreCase))\r\n\t\t\t\t{\r\n\t\t\t\t\treturn GpuVendor.AMD;\r\n\t\t\t\t}\r\n\r\n\t\t\t\tif (adapterCompatibility.Contains(\u0022Intel\u0022, StringComparison.OrdinalIgnoreCase))\r\n\t\t\t\t\treturn GpuVendor.Intel;\r\n\r\n\t\t\t\t// Check by device name if manufacturer wasn\u0027t clear\r\n\t\t\t\tif (name.Contains(\u0022Radeon\u0022, StringComparison.OrdinalIgnoreCase))\r\n\t\t\t\t\treturn GpuVendor.AMD;\r\n\r\n\t\t\t\tif (name.Contains(\u0022GeForce\u0022, StringComparison.OrdinalIgnoreCase) ||\r\n\t\t\t\t\tname.Contains(\u0022Quadro\u0022, StringComparison.OrdinalIgnoreCase))\r\n\t\t\t\t{\r\n\t\t\t\t\treturn GpuVendor.Nvidia;\r\n\t\t\t\t}\r\n\t\t\t}",
+              "protected": "M:System.Management.ManagementObjectSearcher.Get"
+            },
+            "kind": "File",
+            "path": "Utils\\GpuDetector.cs",
+            "snippet": "foreach (var obj in searcher.Get().Cast\u003CManagementObject\u003E())\r\n\t\t\t{\r\n\t\t\t\tstring name = obj[\u0022Name\u0022]?.ToString() ?? \u0022\u0022;\r\n\t\t\t\tstring adapterCompatibility = obj[\u0022AdapterCompatibility\u0022]?.ToString() ?? \u0022\u0022;\r\n\r\n\t\t\t\t// Check by manufacturer\r\n\t\t\t\tif (adapterCompatibility.Contains(\u0022NVIDIA\u0022, StringComparison.OrdinalIgnoreCase))\r\n\t\t\t\t\treturn GpuVendor.Nvidia;\r\n\r\n\t\t\t\tif (adapterCompatibility.Contains(\u0022Advanced Micro Devices\u0022, StringComparison.OrdinalIgnoreCase) ||\r\nadapterCompatibility.Contains(\u0022AMD\u0022, StringComparison.OrdinalIgnoreCase))\r\n\t\t\t\t{\r\n\t\t\t\t\treturn GpuVendor.AMD;\r\n\t\t\t\t}\r\n\r\n\t\t\t\tif (adapterCompatibility.Contains(\u0022Intel\u0022, StringComparison.OrdinalIgnoreCase))\r\n\t\t\t\t\treturn GpuVendor.Intel;\r\n\r\n\t\t\t\t// Check by device name if manufacturer wasn\u0027t clear\r\n\t\t\t\tif (name.Contains(\u0022Radeon\u0022, StringComparison.OrdinalIgnoreCase))\r\n\t\t\t\t\treturn GpuVendor.AMD;\r\n\r\n\t\t\t\tif (name.Contains(\u0022GeForce\u0022, StringComparison.OrdinalIgnoreCase) ||\r\n\t\t\t\t\tname.Contains(\u0022Quadro\u0022, StringComparison.OrdinalIgnoreCase))\r\n\t\t\t\t{\r\n\t\t\t\t\treturn GpuVendor.Nvidia;\r\n\t\t\t\t}\r\n\t\t\t}",
+            "protectedSnippet": "M:System.Management.ManagementObjectSearcher.Get",
+            "label": "M:System.Management.ManagementObjectSearcher.Get",
+            "properties": {
+              "PackageId": "System.Management",
+              "PackageNewVersion": "8.0.0"
+            },
+            "line": 24,
+            "column": 3
+          }
+        },
+        {
+          "incidentId": "1d69c62b-a322-4682-9f91-d804b97788ac",
+          "ruleId": "Api.0002",
+          "description": "API is available in package System.Management, 8.0.0. Add package reference to System.Management, 8.0.0",
+          "projectPath": "GrinVideoEncoder.csproj",
+          "state": "Active",
+          "location": {
+            "snippetModel": {
+              "unrestricted": "using ManagementObjectSearcher searcher = new(\u0022SELECT * FROM Win32_VideoController\u0022);",
+              "protected": "T:System.Management.ManagementObjectSearcher"
+            },
+            "kind": "File",
+            "path": "Utils\\GpuDetector.cs",
+            "snippet": "using ManagementObjectSearcher searcher = new(\u0022SELECT * FROM Win32_VideoController\u0022);",
+            "protectedSnippet": "T:System.Management.ManagementObjectSearcher",
+            "label": "T:System.Management.ManagementObjectSearcher",
+            "properties": {
+              "PackageId": "System.Management",
+              "PackageNewVersion": "8.0.0"
+            },
+            "line": 23,
+            "column": 3
+          }
+        },
+        {
+          "incidentId": "a67564a4-c086-41d3-ad65-d0359cd3fc47",
+          "ruleId": "Api.0002",
+          "description": "API is available in package System.Management, 8.0.0. Add package reference to System.Management, 8.0.0",
+          "projectPath": "GrinVideoEncoder.csproj",
+          "state": "Active",
+          "location": {
+            "snippetModel": {
+              "unrestricted": "using ManagementObjectSearcher searcher = new(\u0022SELECT * FROM Win32_VideoController\u0022);",
+              "protected": "M:System.Management.ManagementObjectSearcher.#ctor(System.String)"
+            },
+            "kind": "File",
+            "path": "Utils\\GpuDetector.cs",
+            "snippet": "using ManagementObjectSearcher searcher = new(\u0022SELECT * FROM Win32_VideoController\u0022);",
+            "protectedSnippet": "M:System.Management.ManagementObjectSearcher.#ctor(System.String)",
+            "label": "M:System.Management.ManagementObjectSearcher.#ctor(System.String)",
+            "properties": {
+              "PackageId": "System.Management",
+              "PackageNewVersion": "8.0.0"
+            },
+            "line": 23,
+            "column": 3
+          }
+        },
+        {
+          "incidentId": "4c6103ba-2123-44a2-a230-acf9e1715578",
+          "ruleId": "Api.0003",
+          "description": "Breaking change: Exception diagnostics are suppressed when IExceptionHandler.TryHandleAsync returns true ",
+          "projectPath": "GrinVideoEncoder.csproj",
+          "state": "Active",
+          "location": {
+            "snippetModel": {
+              "unrestricted": "app.UseExceptionHandler(\u0022/Error\u0022);",
+              "protected": "M:Microsoft.AspNetCore.Builder.ExceptionHandlerExtensions.UseExceptionHandler(Microsoft.AspNetCore.Builder.IApplicationBuilder,System.String)"
+            },
+            "kind": "File",
+            "path": "Program.cs",
+            "snippet": "app.UseExceptionHandler(\u0022/Error\u0022);",
+            "protectedSnippet": "M:Microsoft.AspNetCore.Builder.ExceptionHandlerExtensions.UseExceptionHandler(Microsoft.AspNetCore.Builder.IApplicationBuilder,System.String)",
+            "label": "M:Microsoft.AspNetCore.Builder.ExceptionHandlerExtensions.UseExceptionHandler(Microsoft.AspNetCore.Builder.IApplicationBuilder,System.String)",
+            "links": [
+              {
+                "title": "API documentation",
+                "url": "https://github.com/dotnet/docs/blob/main/docs/core/compatibility/aspnet-core/10/exception-handler-diagnostics-suppressed.md",
+                "isCustom": false
+              }
+            ],
+            "line": 28,
+            "column": 1
+          }
+        },
+        {
+          "incidentId": "aee4b2f7-2855-465a-a91f-fd3c36faaa31",
+          "ruleId": "Api.0001",
+          "description": "Breaking change: DynamicallyAccessedMembers annotation removed from trim-unsafe configuration APIs ",
+          "projectPath": "GrinVideoEncoder.csproj",
+          "state": "Active",
+          "location": {
+            "snippetModel": {
+              "unrestricted": "var appSettings = builder.Configuration.GetSection(\u0022Settings\u0022).Get\u003CAppSettings\u003E() ?? throw new Exception(\u0022Failed to load Application Settings\u0022);",
+              "protected": "M:Microsoft.Extensions.Configuration.ConfigurationBinder.Get\u0060\u00601(Microsoft.Extensions.Configuration.IConfiguration)"
+            },
+            "kind": "File",
+            "path": "Program.cs",
+            "snippet": "var appSettings = builder.Configuration.GetSection(\u0022Settings\u0022).Get\u003CAppSettings\u003E() ?? throw new Exception(\u0022Failed to load Application Settings\u0022);",
+            "protectedSnippet": "M:Microsoft.Extensions.Configuration.ConfigurationBinder.Get\u0060\u00601(Microsoft.Extensions.Configuration.IConfiguration)",
+            "label": "M:Microsoft.Extensions.Configuration.ConfigurationBinder.Get\u0060\u00601(Microsoft.Extensions.Configuration.IConfiguration)",
+            "links": [
+              {
+                "title": "API documentation",
+                "url": "https://github.com/dotnet/docs/blob/main/docs/core/compatibility/extensions/10.0/dynamically-accessed-members-configuration.md",
+                "isCustom": false
+              }
+            ],
+            "line": 15,
+            "column": 0
+          }
+        }
+      ],
+      "features": [
+        {
+          "featureId": "SystemManagement",
+          "incidents": [
+            "a67564a4-c086-41d3-ad65-d0359cd3fc47",
+            "1d69c62b-a322-4682-9f91-d804b97788ac",
+            "0ee02472-235d-4d9b-b300-4dd10c5ec4e5",
+            "c5309481-0dbe-4e7e-9930-5effceb2e808",
+            "7b66e7ea-404d-4acf-94c6-7516a90211af",
+            "cad2cfd6-4507-453d-9341-c9667153016d"
+          ]
+        }
+      ]
+    }
+  ],
+  "rules": {
+    "NuGet.0002": {
+      "id": "NuGet.0002",
+      "isFeature": false,
+      "description": "NuGet package upgrade is recommended for selected target framework.\n\nStandard .NET packages are recommended to have versions matching version of .NET that project targets.\n\nSome other packages also are known to work better for selected target frameworks.",
+      "label": "NuGet package upgrade is recommended",
+      "severity": "Potential",
+      "effort": 1,
+      "links": [
+        {
+          "url": "https://go.microsoft.com/fwlink/?linkid=2262530",
+          "isCustom": false
+        }
+      ]
+    },
+    "Project.0002": {
+      "id": "Project.0002",
+      "isFeature": false,
+      "description": "Project\u0027s target framework(s) needs to be changed to the new target framework that you selected for this upgrade.\n\nDuring upgrade target framework will be adjusted to corresponding platform when applicable. In some cases project would result in multiple target frameworks after the upgrade if it was using features that now have their own platforms in modern .NET frameworks (windows, iOS, Android etc).",
+      "label": "Project\u0027s target framework(s) needs to be changed",
+      "severity": "Mandatory",
+      "effort": 1,
+      "links": [
+        {
+          "title": "Overview of porting from .NET Framework to .NET",
+          "url": "https://go.microsoft.com/fwlink/?linkid=2265227",
+          "isCustom": false
+        },
+        {
+          "title": ".NET project SDKs",
+          "url": "https://go.microsoft.com/fwlink/?linkid=2265226",
+          "isCustom": false
+        }
+      ]
+    },
+    "Api.0002": {
+      "id": "Api.0002",
+      "isFeature": false,
+      "description": "API is source incompatible for selected .NET version: requires code changes to compile successfully when targeting a new version, such as removing obsolete APIs or changing method signatures.",
+      "label": "Source incompatible for selected .NET version",
+      "severity": "Potential",
+      "effort": 1,
+      "links": [
+        {
+          "title": "Breaking changes in .NET",
+          "url": "https://go.microsoft.com/fwlink/?linkid=2262679",
+          "isCustom": false
+        }
+      ]
+    },
+    "Api.0003": {
+      "id": "Api.0003",
+      "isFeature": false,
+      "description": "API has a behavioral change in selected .NET version: code and binaries may behave differently at runtime without needing recompilation, but the new behavior might be undesirable and require updates.",
+      "label": "Behavioral change in selected .NET version",
+      "severity": "Potential",
+      "effort": 1
+    },
+    "Api.0001": {
+      "id": "Api.0001",
+      "isFeature": false,
+      "description": "API is binary incompatible for selected .NET version: affects existing binaries, often requiring recompilation, because the API has changed in a way that prevents older binaries from loading or executing.",
+      "label": "Binary incompatible for selected .NET version",
+      "severity": "Mandatory",
+      "effort": 1,
+      "links": [
+        {
+          "title": "Breaking changes in .NET",
+          "url": "https://go.microsoft.com/fwlink/?linkid=2262679",
+          "isCustom": false
+        }
+      ]
+    },
+    "SystemManagement": {
+      "id": "SystemManagement",
+      "isFeature": false,
+      "description": "Windows Management Instrumentation (WMI) APIs for system administration and monitoring that are available via NuGet package System.Management. These APIs provide access to Windows system information but are Windows-only; consider cross-platform alternatives for new code.",
+      "label": "System Management (WMI)",
+      "severity": "Mandatory",
+      "effort": 1,
+      "links": [
+        {
+          "title": "System.Management package",
+          "url": "https://go.microsoft.com/fwlink/?linkid=2342001",
+          "isCustom": false
+        }
+      ]
+    }
+  }
+}
