@@ -59,21 +59,47 @@ public class VideoIndexerService : BackgroundService
 	{
 		Log.Information("Scanning for existing video files in {IndexerPath}", _settings.IndexerPath);
 
-		var files = Directory.EnumerateFiles(_settings.IndexerPath, "*", SearchOption.AllDirectories)
-			.Where(IsEligibleVideoFile)
-			.ToList();
+		var directories = new Stack<string>();
+		directories.Push(_settings.IndexerPath);
+		var indexedCount = 0;
 
-		Log.Information("Found {Count} video files larger than 100MB to index", files.Count);
-
-		foreach (var filePath in files)
+		while (directories.Count > 0)
 		{
 			if (stoppingToken.IsCancellationRequested)
 				break;
 
-			await IndexFile(filePath);
+			var currentDir = directories.Pop();
+
+			try
+			{
+				foreach (var filePath in Directory.EnumerateFiles(currentDir))
+				{
+					if (stoppingToken.IsCancellationRequested)
+						break;
+
+					if (IsEligibleVideoFile(filePath))
+					{
+						await IndexFile(filePath);
+						indexedCount++;
+					}
+				}
+
+				foreach (var subDir in Directory.EnumerateDirectories(currentDir))
+				{
+					directories.Push(subDir);
+				}
+			}
+			catch (UnauthorizedAccessException)
+			{
+				Log.Warning("Skipping directory due to access denied: {DirectoryPath}", currentDir);
+			}
+			catch (Exception ex)
+			{
+				Log.Error(ex, "Error scanning directory: {DirectoryPath}", currentDir);
+			}
 		}
 
-		Log.Information("Initial indexing complete");
+		Log.Information("Initial indexing complete. Processed {Count} eligible files.", indexedCount);
 	}
 
 	private void StartFileWatcher()
