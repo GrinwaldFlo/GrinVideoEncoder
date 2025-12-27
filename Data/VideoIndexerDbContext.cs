@@ -24,7 +24,6 @@ public class VideoIndexerDbContext : DbContext
 		modelBuilder.Entity<VideoFile>(entity =>
 		{
 			entity.HasKey(e => e.Id);
-			entity.HasIndex(e => new { e.DirectoryPath, e.Filename }).IsUnique();
 			entity.Property(e => e.DirectoryPath).IsRequired().HasMaxLength(1024);
 			entity.Property(e => e.Filename).IsRequired().HasMaxLength(256);
 			entity.Ignore(e => e.FullPath);
@@ -40,5 +39,14 @@ public class VideoIndexerDbContext : DbContext
 		await using var context = new VideoIndexerDbContext(dbPath);
 		await context.Database.ExecuteSqlRawAsync("PRAGMA wal_checkpoint(TRUNCATE);");
 		Log.Information("SQLite WAL checkpoint completed for {DatabasePath}", dbPath);
+	}
+
+	public async Task<List<VideoFile>> GetVideosWithHighQualityRatioAsync(double threshold)
+	{
+		return await VideoFiles
+			.Where(v => v.Status == CompressionStatus.Original)
+			.AsAsyncEnumerable()
+			.Where(v => v.QualityRatioOriginal.HasValue && v.QualityRatioOriginal > threshold)
+			.ToListAsync();
 	}
 }

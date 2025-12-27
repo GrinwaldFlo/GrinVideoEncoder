@@ -26,6 +26,7 @@ builder.Services.AddScoped<VideoIndexerDbContext>(provider =>
 
 builder.Services.AddHostedService<MainBackgroundService>();
 builder.Services.AddHostedService<VideoIndexerService>();
+builder.Services.AddHostedService<VideoReencodeService>();
 builder.Services.AddTransient<VideoProcessorService>();
 builder.Services.AddSingleton<CommunicationService>();
 builder.Services.AddRazorPages();

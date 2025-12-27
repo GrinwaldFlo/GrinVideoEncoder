@@ -33,7 +33,7 @@ public class VideoFile
 	/// </summary>
 	public CompressionStatus Status { get; set; } = CompressionStatus.Original;
 
-	public string FullPath => Path.Combine(DirectoryPath, Filename);
+	public string FullPath => Path.GetFullPath(Path.Combine(DirectoryPath, Filename));
 
 	/// <summary>
 	/// Total pixels per frame (Width × Height).

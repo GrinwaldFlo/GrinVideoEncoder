@@ -1,3 +1,4 @@
+using GrinVideoEncoder.Utils;
 using Xabe.FFmpeg;
 using Xabe.FFmpeg.Downloader;
 using static GrinVideoEncoder.Utils.GpuDetector;
@@ -49,33 +50,13 @@ public class VideoProcessorService(IAppSettings settings)
 		communication.Status.Status = "Processing";
 		communication.Status.IsRunning = true;
 
-		var gpuType = GpuDetector.DetectGpuVendor();
+
 		FileNamer filename = new(settings, filePath);
 		try
 		{
 			await PrepareProcessing(filename);
 
-			var mediaInfo = await FFmpeg.GetMediaInfo(filename.ProcessingPath, token);
-			var videoStream = mediaInfo.VideoStreams.FirstOrDefault()
-				?? throw new Exception("No video stream found");
-
-			if (!settings.ForceCpu && gpuType is GpuDetector.GpuVendor.Nvidia or GpuDetector.GpuVendor.AMD)
-			{
-				try
-				{
-					await ProcessWithGpu(videoStream, mediaInfo.AudioStreams, filename.TempPath, gpuType, token);
-				}
-				catch (Exception ex) when (ex.Message.Contains("encoder") || ex.Message.Contains("GPU"))
-				{
-					Log.Warning("{GpuType} GPU encoding failed. Falling back to CPU encoding. Error: {ErrorMessage}", gpuType, ex.Message);
-					videoStream = mediaInfo.VideoStreams.First();
-					await ProcessWithCpu(videoStream, mediaInfo.AudioStreams, filename, token);
-				}
-			}
-			else
-			{
-				await ProcessWithCpu(videoStream, mediaInfo.AudioStreams, filename, token);
-			}
+			await EncodeVideo(filename.ProcessingPath, filename.TempPath, token);
 
 			FinalizeProcessing(filename);
 			communication.Status.Status = "Done";
@@ -118,6 +99,34 @@ public class VideoProcessorService(IAppSettings settings)
 		}
 	}
 
+	public async Task EncodeVideo(string inputFilename, string outputFilename, CancellationToken token = default)
+	{
+		var gpuType = GpuDetector.DetectGpuVendor();
+		var mediaInfo = await FFmpeg.GetMediaInfo(inputFilename, token);
+		var videoStream = mediaInfo.VideoStreams.FirstOrDefault()
+			?? throw new Exception("No video stream found");
+
+		if (!settings.ForceCpu && gpuType is GpuDetector.GpuVendor.Nvidia or GpuDetector.GpuVendor.AMD)
+		{
+			try
+			{
+				await ProcessWithGpu(videoStream, mediaInfo.AudioStreams, mediaInfo.SubtitleStreams, outputFilename, gpuType, token);
+			}
+			catch (Exception ex) when (ex.Message.Contains("encoder") || ex.Message.Contains("GPU"))
+			{
+				Log.Warning("{GpuType} GPU encoding failed. Falling back to CPU encoding. Error: {ErrorMessage}", gpuType, ex.Message);
+				throw new Exception("No GPU found");
+				//videoStream = mediaInfo.VideoStreams.First();
+				//await ProcessWithCpu(videoStream, mediaInfo.AudioStreams, outputFilename, token);
+			}
+		}
+		else
+		{
+			throw new Exception("No GPU found");
+			//await ProcessWithCpu(videoStream, mediaInfo.AudioStreams, outputFilename, token);
+		}
+	}
+
 	private static async Task PrepareProcessing(FileNamer file)
 	{
 		Log.Information("Waiting {FilePath} is ready", file.InputPath);
@@ -127,7 +136,7 @@ public class VideoProcessorService(IAppSettings settings)
 		Log.Information("Started processing {ProcessingPath}", file.ProcessingPath);
 	}
 
-	private async Task ProcessWithCpu(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, FileNamer file, CancellationToken token)
+	private async Task ProcessWithCpu(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, string output, CancellationToken token)
 	{
 		videoStream.SetCodec(VideoCodec.hevc);
 
@@ -141,14 +150,17 @@ public class VideoProcessorService(IAppSettings settings)
 			conversion.AddStream(audioStream);
 		}
 
-		conversion.SetOutput(file.TempPath);
+		conversion.SetOutput(output);
 		conversion.OnDataReceived += (sender, args) => Log.Information("FFmpeg [CPU]: {Data}", args.Data);
 		await conversion.Start(token);
 	}
 
-	private async Task ProcessWithGpu(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, string outputPath,
+	private async Task ProcessWithGpu(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, IEnumerable<ISubtitleStream> subtitleStreams, string outputPath,
 				GpuVendor gpuType, CancellationToken token)
 	{
+		if (!outputPath.EndsWith(".mp4"))
+			throw new Exception("Please provide an mp4 file");
+
 		var conversion = FFmpeg.Conversions.New()
 			.AddStream(videoStream);
 
@@ -170,23 +182,36 @@ public class VideoProcessorService(IAppSettings settings)
 			case GpuVendor.AMD:
 				conversion
 					.AddParameter("-c:v hevc_amf")
-					.AddParameter("-quality quality")
 					.AddParameter("-rc cqp")
 					.AddParameter($"-qp_i {settings.QualityLevel}")
-					.AddParameter($"-qp_p {settings.QualityLevel + 2}")
-					.AddParameter($"-qp_b {settings.QualityLevel + 4}");
+					.AddParameter($"-qp_p {settings.QualityLevel}")
+					.AddParameter("-pix_fmt yuv420p")
+					.AddParameter("-tag:v hvc1");
 				break;
 
 			default:
 				throw new ArgumentException("Unsupported GPU type");
 		}
 
-		conversion.SetOutput(outputPath);
-
+		// Process Audio
 		foreach (var audioStream in audioStreams)
 		{
 			conversion.AddStream(audioStream);
 		}
+
+		// Process Subtitles
+		if (subtitleStreams != null && subtitleStreams.Any())
+		{
+			foreach (var subStream in subtitleStreams)
+			{
+				conversion.AddStream(subStream);
+			}
+			// Force conversion to MP4-compatible subtitle format
+			conversion.AddParameter("-c:s mov_text");
+		}
+
+		conversion.SetOutput(outputPath);
+
 
 		conversion.OnDataReceived += (sender, args) => Log.Information("FFmpeg [{GpuType} GPU]: {Data}", gpuType, args.Data);
 		await conversion.Start(token);
@@ -202,20 +227,28 @@ public class VideoProcessorService(IAppSettings settings)
 	{
 		while (!token.IsCancellationRequested)
 		{
-			try
-			{
-				using var stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.None);
-				if (stream.Length > 0)
-					return;
-			}
-			catch
-			{
-				// Do nothing
-			}
+			if (IsFileAvailable(filePath))
+				return;
 
 			await Task.Delay(5000, token);
 		}
 	}
+
+	public static bool IsFileAvailable(string filePath)
+	{
+		try
+		{
+			using var stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.None);
+			if (stream.Length > 0)
+				return true;
+		}
+		catch
+		{
+			// Do nothing
+		}
+		return false;
+	}
+
 
 	/// <summary>
 	/// Downloads FFmpeg if not exists
