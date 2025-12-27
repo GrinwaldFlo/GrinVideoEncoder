@@ -100,6 +100,9 @@ public class VideoIndexerService : BackgroundService
 		}
 
 		Log.Information("Initial indexing complete. Processed {Count} eligible files.", indexedCount);
+
+		// Checkpoint WAL after scanning to commit all indexed files to the main database
+		await VideoIndexerDbContext.CheckpointWalAsync(_dbPath);
 	}
 
 	private void StartFileWatcher()

@@ -60,4 +60,7 @@ using (var scope = app.Services.CreateScope())
 	await videoProcessor.FfmpegDownload();
 }
 
+// Checkpoint WAL at startup to commit any pending changes from previous runs
+await VideoIndexerDbContext.CheckpointWalAsync(appSettings.DatabasePath);
+
 await app.RunAsync();

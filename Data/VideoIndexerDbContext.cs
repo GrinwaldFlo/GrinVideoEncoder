@@ -30,4 +30,15 @@ public class VideoIndexerDbContext : DbContext
 			entity.Ignore(e => e.FullPath);
 		});
 	}
+
+	/// <summary>
+	/// Checkpoints the WAL file to commit all pending changes to the main database file.
+	/// This reduces the WAL file size and ensures data durability.
+	/// </summary>
+	public static async Task CheckpointWalAsync(string dbPath)
+	{
+		await using var context = new VideoIndexerDbContext(dbPath);
+		await context.Database.ExecuteSqlRawAsync("PRAGMA wal_checkpoint(TRUNCATE);");
+		Log.Information("SQLite WAL checkpoint completed for {DatabasePath}", dbPath);
+	}
 }
