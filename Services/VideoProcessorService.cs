@@ -14,11 +14,18 @@ public class VideoProcessorService(IAppSettings settings)
 	/// <param name="filePath">Path to the video file.</param>
 	/// <param name="token">Cancellation token.</param>
 	/// <returns>The duration of the video.</returns>
-	public async Task<TimeSpan> GetVideoDuration(string filePath, CancellationToken token = default)
+	public static async Task<TimeSpan?> GetVideoDuration(string filePath, CancellationToken token = default)
 	{
-		await FfmpegDownload();
-		var mediaInfo = await FFmpeg.GetMediaInfo(filePath, token);
-		return mediaInfo.Duration;
+		try
+		{
+			var mediaInfo = await FFmpeg.GetMediaInfo(filePath, token);
+			return mediaInfo.Duration;
+		}
+		catch (Exception ex)
+		{
+			Log.Warning(ex, "Failed to get video duration for {FilePath}", filePath);
+			return null;
+		}
 	}
 
 	public async Task ProcessVideo(string filePath, CommunicationService communication)
@@ -30,7 +37,6 @@ public class VideoProcessorService(IAppSettings settings)
 
 		communication.Status.Status = "Processing";
 		communication.Status.IsRunning = true;
-		await FfmpegDownload();
 
 		var gpuType = GpuDetector.DetectGpuVendor();
 		FileNamer filename = new(settings, filePath);
@@ -204,7 +210,7 @@ public class VideoProcessorService(IAppSettings settings)
 	/// Downloads FFmpeg if not exists
 	/// </summary>
 	/// <returns></returns>
-	private async Task FfmpegDownload()
+	public async Task FfmpegDownload()
 	{
 		string ffmpegPath = Path.Combine(settings.TempPath, "ffmpeg");
 		if (!Directory.Exists(ffmpegPath))
@@ -212,10 +218,33 @@ public class VideoProcessorService(IAppSettings settings)
 			Directory.CreateDirectory(ffmpegPath);
 		}
 		FFmpeg.SetExecutablesPath(ffmpegPath);
+		await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official, ffmpegPath);
 
-		if (!File.Exists(Path.Combine(ffmpegPath, "ffmpeg.exe")))
+		string exePath = Path.Combine(ffmpegPath, "ffmpeg.exe");
+
+		try
 		{
-			await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official, ffmpegPath);
+			using var process = new System.Diagnostics.Process();
+			process.StartInfo.FileName = exePath;
+			process.StartInfo.Arguments = "-version";
+			process.StartInfo.UseShellExecute = false;
+			process.StartInfo.RedirectStandardOutput = true;
+			process.StartInfo.CreateNoWindow = true;
+			process.Start();
+			string output = await process.StandardOutput.ReadToEndAsync();
+			await process.WaitForExitAsync();
+
+			if (process.ExitCode != 0)
+			{
+				throw new Exception($"FFmpeg exited with code {process.ExitCode}");
+			}
+
+			Log.Information("FFmpeg version: {Version}", output.Split('\n').FirstOrDefault()?.Trim());
+		}
+		catch (Exception ex)
+		{
+			Log.Fatal(ex, "FFmpeg is not working properly. Application will close.");
+			Environment.Exit(1);
 		}
 	}
 }

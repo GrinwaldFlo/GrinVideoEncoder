@@ -7,7 +7,7 @@ public class VideoFile
 	public string Filename { get; set; } = string.Empty;
 	public long FileSizeOriginal { get; set; }
 	public long? FileSizeCompressed { get; set; }
-	public TimeSpan Duration { get; set; }
+	public TimeSpan? Duration { get; set; }
 	public DateTime IndexedAt { get; set; } = DateTime.UtcNow;
 	public DateTime LastModified { get; set; }
 

@@ -47,4 +47,10 @@ app.Lifetime.ApplicationStarted.Register(() =>
 	}
 });
 
+using (var scope = app.Services.CreateScope())
+{
+	var videoProcessor = scope.ServiceProvider.GetRequiredService<VideoProcessorService>();
+	await videoProcessor.FfmpegDownload();
+}
+
 await app.RunAsync();

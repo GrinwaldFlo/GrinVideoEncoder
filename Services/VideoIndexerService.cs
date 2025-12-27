@@ -168,7 +168,7 @@ public class VideoIndexerService : BackgroundService
 				return;
 			}
 
-			var duration = await _videoProcessor.GetVideoDuration(filePath);
+			var duration = await VideoProcessorService.GetVideoDuration(filePath);
 
 			var videoFile = new VideoFile
 			{
@@ -216,7 +216,7 @@ public class VideoIndexerService : BackgroundService
 			if (existingFile.LastModified >= fileInfo.LastWriteTimeUtc)
 				return;
 
-			var duration = await _videoProcessor.GetVideoDuration(filePath);
+			var duration = await VideoProcessorService.GetVideoDuration(filePath);
 
 			existingFile.FileSizeOriginal = fileInfo.Length;
 			existingFile.Duration = duration;
