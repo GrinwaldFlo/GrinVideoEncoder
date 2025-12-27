@@ -168,7 +168,8 @@ public class VideoIndexerService : BackgroundService
 				return;
 			}
 
-			var duration = await VideoProcessorService.GetVideoDuration(filePath);
+			var mediaInfo = await VideoProcessorService.GetMediaInfo(filePath);
+			var videoStream = mediaInfo?.VideoStreams.FirstOrDefault();
 
 			var videoFile = new VideoFile
 			{
@@ -176,17 +177,21 @@ public class VideoIndexerService : BackgroundService
 				Filename = fileInfo.Name,
 				FileSizeOriginal = fileInfo.Length,
 				FileSizeCompressed = null,
-				DurationSeconds = (long?)duration?.TotalSeconds,
+				DurationSeconds = (long?)mediaInfo?.Duration.TotalSeconds,
+				Width = videoStream?.Width,
+				Height = videoStream?.Height,
 				LastModified = fileInfo.LastWriteTimeUtc
 			};
 
 			context.VideoFiles.Add(videoFile);
 			await context.SaveChangesAsync();
 
-			Log.Information("Indexed video: {Filename} ({Size:F2} MB, {Duration})",
+			Log.Information("Indexed video: {Filename} ({Size:F2} MB, {Duration}, {Width}x{Height})",
 				fileInfo.Name,
 				fileInfo.Length / (1024.0 * 1024.0),
-				duration);
+				mediaInfo?.Duration,
+				videoStream?.Width,
+				videoStream?.Height);
 		}
 		catch (Exception ex)
 		{
@@ -216,10 +221,13 @@ public class VideoIndexerService : BackgroundService
 			if (existingFile.LastModified >= fileInfo.LastWriteTimeUtc)
 				return;
 
-			var duration = await VideoProcessorService.GetVideoDuration(filePath);
+			var mediaInfo = await VideoProcessorService.GetMediaInfo(filePath);
+			var videoStream = mediaInfo?.VideoStreams.FirstOrDefault();
 
 			existingFile.FileSizeOriginal = fileInfo.Length;
-			existingFile.DurationSeconds = (long?)duration?.TotalSeconds;
+			existingFile.DurationSeconds = (long?)mediaInfo?.Duration.TotalSeconds;
+			existingFile.Width = videoStream?.Width;
+			existingFile.Height = videoStream?.Height;
 			existingFile.LastModified = fileInfo.LastWriteTimeUtc;
 			existingFile.IndexedAt = DateTime.UtcNow;
 

@@ -9,6 +9,25 @@ public class VideoProcessorService(IAppSettings settings)
 	public bool ReadyToProcess { get; private set; } = true;
 
 	/// <summary>
+	/// Gets the full media information for a video file using FFprobe.
+	/// </summary>
+	/// <param name="filePath">Path to the video file.</param>
+	/// <param name="token">Cancellation token.</param>
+	/// <returns>The media information including duration, streams, and dimensions.</returns>
+	public static async Task<IMediaInfo?> GetMediaInfo(string filePath, CancellationToken token = default)
+	{
+		try
+		{
+			return await FFmpeg.GetMediaInfo(filePath, token);
+		}
+		catch (Exception ex)
+		{
+			Log.Warning(ex, "Failed to get media info for {FilePath}", filePath);
+			return null;
+		}
+	}
+
+	/// <summary>
 	/// Gets the duration of a video file using FFprobe.
 	/// </summary>
 	/// <param name="filePath">Path to the video file.</param>
@@ -16,16 +35,8 @@ public class VideoProcessorService(IAppSettings settings)
 	/// <returns>The duration of the video.</returns>
 	public static async Task<TimeSpan?> GetVideoDuration(string filePath, CancellationToken token = default)
 	{
-		try
-		{
-			var mediaInfo = await FFmpeg.GetMediaInfo(filePath, token);
-			return mediaInfo.Duration;
-		}
-		catch (Exception ex)
-		{
-			Log.Warning(ex, "Failed to get video duration for {FilePath}", filePath);
-			return null;
-		}
+		var mediaInfo = await GetMediaInfo(filePath, token);
+		return mediaInfo?.Duration;
 	}
 
 	public async Task ProcessVideo(string filePath, CommunicationService communication)

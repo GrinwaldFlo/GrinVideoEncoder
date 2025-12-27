@@ -82,8 +82,13 @@
                     </a>
                 </th>
                 <th>
+                    <a href="@Model.GetSortUrl("Resolution")" class="text-white text-decoration-none">
+                        Resolution @Model.GetSortIcon("Resolution")
+                    </a>
+                </th>
+                <th>
                     <a href="@Model.GetSortUrl("QualityRatio")" class="text-white text-decoration-none">
-                        Quality Ratio @Model.GetSortIcon("QualityRatio")
+                        Quality @Model.GetSortIcon("QualityRatio")
                     </a>
                 </th>
                 <th>
@@ -127,6 +132,9 @@
                     </td>
                     <td>
                         @FormatDuration(item.DurationSeconds)
+                    </td>
+                    <td>
+                        @FormatResolution(item.Width, item.Height)
                     </td>
                     <td>
                         @FormatQualityRatio(item.QualityRatio)
@@ -225,11 +233,18 @@
         return $"{minutes}:{seconds:D2}";
     }
 
+    string FormatResolution(int? width, int? height)
+    {
+        if (!width.HasValue || !height.HasValue)
+            return "-";
+        return $"{width}×{height}";
+    }
+
     string FormatQualityRatio(double? qualityRatio)
     {
         if (!qualityRatio.HasValue)
             return "-";
-        return FormatFileSize((long)qualityRatio.Value) + "/s";
+        return $"{qualityRatio.Value:F0}";
     }
 
     string FormatCompressionFactor(double? compressionFactor)

@@ -95,12 +95,15 @@ public class IndexModel : PageModel
             "Directory" => SortDescending ? query.OrderByDescending(v => v.DirectoryPath) : query.OrderBy(v => v.DirectoryPath),
             "Size" => SortDescending ? query.OrderByDescending(v => v.FileSizeOriginal) : query.OrderBy(v => v.FileSizeOriginal),
             "Duration" => SortDescending ? query.OrderByDescending(v => v.DurationSeconds) : query.OrderBy(v => v.DurationSeconds),
+            "Resolution" => SortDescending
+                ? query.OrderByDescending(v => v.Width.HasValue && v.Height.HasValue ? (long)v.Width.Value * v.Height.Value : (long?)null)
+                : query.OrderBy(v => v.Width.HasValue && v.Height.HasValue ? (long)v.Width.Value * v.Height.Value : (long?)null),
             "QualityRatio" => SortDescending 
-                ? query.OrderByDescending(v => v.DurationSeconds.HasValue && v.DurationSeconds > 0 
-                    ? (v.FileSizeCompressed.HasValue ? (double)v.FileSizeCompressed.Value : (double)v.FileSizeOriginal) / v.DurationSeconds.Value 
+                ? query.OrderByDescending(v => v.DurationSeconds.HasValue && v.DurationSeconds > 0 && v.Width.HasValue && v.Height.HasValue && v.Width > 0 && v.Height > 0
+                    ? (v.FileSizeCompressed.HasValue ? (double)v.FileSizeCompressed.Value : (double)v.FileSizeOriginal) / v.DurationSeconds.Value / ((long)v.Width.Value * v.Height.Value)
                     : (double?)null)
-                : query.OrderBy(v => v.DurationSeconds.HasValue && v.DurationSeconds > 0 
-                    ? (v.FileSizeCompressed.HasValue ? (double)v.FileSizeCompressed.Value : (double)v.FileSizeOriginal) / v.DurationSeconds.Value 
+                : query.OrderBy(v => v.DurationSeconds.HasValue && v.DurationSeconds > 0 && v.Width.HasValue && v.Height.HasValue && v.Width > 0 && v.Height > 0
+                    ? (v.FileSizeCompressed.HasValue ? (double)v.FileSizeCompressed.Value : (double)v.FileSizeOriginal) / v.DurationSeconds.Value / ((long)v.Width.Value * v.Height.Value)
                     : (double?)null),
             "CompressionFactor" => SortDescending 
                 ? query.OrderByDescending(v => v.FileSizeCompressed.HasValue && v.FileSizeOriginal > 0 
