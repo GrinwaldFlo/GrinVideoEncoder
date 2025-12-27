@@ -8,6 +8,19 @@ public class VideoProcessorService(IAppSettings settings)
 {
 	public bool ReadyToProcess { get; private set; } = true;
 
+	/// <summary>
+	/// Gets the duration of a video file using FFprobe.
+	/// </summary>
+	/// <param name="filePath">Path to the video file.</param>
+	/// <param name="token">Cancellation token.</param>
+	/// <returns>The duration of the video.</returns>
+	public async Task<TimeSpan> GetVideoDuration(string filePath, CancellationToken token = default)
+	{
+		await FfmpegDownload();
+		var mediaInfo = await FFmpeg.GetMediaInfo(filePath, token);
+		return mediaInfo.Duration;
+	}
+
 	public async Task ProcessVideo(string filePath, CommunicationService communication)
 	{
 		var token = communication.VideoProcessToken.Token;

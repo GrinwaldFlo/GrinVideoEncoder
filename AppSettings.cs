@@ -16,4 +16,16 @@ public class AppSettings : IAppSettings
 
 	/// <inheritdoc/>
 	public int QualityLevel { get; set; } = 23;
+
+	/// <inheritdoc/>
+	public string IndexerPath { get; set; } = string.Empty;
+
+	/// <inheritdoc/>
+	public string DatabasePath { get; set; } = "videoindex.db";
+
+	/// <inheritdoc/>
+	public string[] VideoExtensions { get; set; } = [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm"];
+
+	/// <inheritdoc/>
+	public int MinFileSizeMB { get; set; } = 100;
 }
