@@ -1,4 +1,4 @@
-﻿namespace GrinVideoEncoder;
+namespace GrinVideoEncoder;
 
 public class AppSettings : IAppSettings
 {
@@ -13,4 +13,7 @@ public class AppSettings : IAppSettings
 
 	//<inheritdoc/>
 	public int BitrateKbS { get; set; } = 3000;
+
+	/// <inheritdoc/>
+	public int QualityLevel { get; set; } = 23;
 }

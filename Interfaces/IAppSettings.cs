@@ -1,4 +1,4 @@
-﻿namespace GrinVideoEncoder.Interfaces;
+namespace GrinVideoEncoder.Interfaces;
 
 public interface IAppSettings
 {
@@ -14,7 +14,9 @@ public interface IAppSettings
 	bool ForceCpu { get; set; }
 
 	/// <summary>
-	/// Bitrate in kilobits per second
+	/// Quality level for encoding (CRF/CQ value).
+	/// Lower values = better quality, larger files.
+	/// Recommended range: 18-28. Default: 23.
 	/// </summary>
-	int BitrateKbS { get; set; }
+	int QualityLevel { get; set; }
 }

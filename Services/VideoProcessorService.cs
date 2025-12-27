@@ -1,4 +1,4 @@
-﻿using Xabe.FFmpeg;
+using Xabe.FFmpeg;
 using Xabe.FFmpeg.Downloader;
 using static GrinVideoEncoder.Utils.GpuDetector;
 
@@ -99,33 +99,42 @@ public class VideoProcessorService(IAppSettings settings)
 
 	private async Task ProcessWithCpu(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, FileNamer file, CancellationToken token)
 	{
-		videoStream.SetCodec(VideoCodec.hevc)
-				  .SetBitrate(settings.BitrateKbS * 1000);
+		videoStream.SetCodec(VideoCodec.hevc);
 
-		await RunFirstPass(videoStream, file, token);
-		await RunSecondPass(videoStream, audioStreams, file, token);
+		var conversion = FFmpeg.Conversions.New()
+			.AddStream(videoStream)
+			.AddParameter($"-crf {settings.QualityLevel}")
+			.AddParameter("-preset medium");
+
+		foreach (var audioStream in audioStreams)
+		{
+			conversion.AddStream(audioStream);
+		}
+
+		conversion.SetOutput(file.TempPath);
+		conversion.OnDataReceived += (sender, args) => Log.Information("FFmpeg [CPU]: {Data}", args.Data);
+		await conversion.Start(token);
 	}
 
 	private async Task ProcessWithGpu(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, string outputPath,
 				GpuVendor gpuType, CancellationToken token)
 	{
-		videoStream.SetBitrate(settings.BitrateKbS * 1000);
-
 		var conversion = FFmpeg.Conversions.New()
 			.AddStream(videoStream);
 
-		// Add GPU-specific parameters
+		// Add GPU-specific parameters for constant quality encoding
 		switch (gpuType)
 		{
 			case GpuVendor.Nvidia:
 				conversion
 					.AddParameter("-c:v hevc_nvenc")
 					.AddParameter("-preset p7")
+					.AddParameter("-rc vbr")
+					.AddParameter($"-cq {settings.QualityLevel}")
 					.AddParameter("-rc-lookahead 32")
 					.AddParameter("-spatial-aq 1")
 					.AddParameter("-temporal-aq 1")
-					.AddParameter("-gpu 0")
-					.AddParameter($"-b:v {settings.BitrateKbS}k");
+					.AddParameter("-gpu 0");
 				break;
 
 			case GpuVendor.AMD:
@@ -133,10 +142,9 @@ public class VideoProcessorService(IAppSettings settings)
 					.AddParameter("-c:v hevc_amf")
 					.AddParameter("-quality quality")
 					.AddParameter("-rc cqp")
-					.AddParameter("-qp_i 18")
-					.AddParameter("-qp_p 20")
-					.AddParameter("-qp_b 24")
-					.AddParameter($"-b:v {settings.BitrateKbS}k");
+					.AddParameter($"-qp_i {settings.QualityLevel}")
+					.AddParameter($"-qp_p {settings.QualityLevel + 2}")
+					.AddParameter($"-qp_b {settings.QualityLevel + 4}");
 				break;
 
 			default:
@@ -151,39 +159,6 @@ public class VideoProcessorService(IAppSettings settings)
 		}
 
 		conversion.OnDataReceived += (sender, args) => Log.Information("FFmpeg [{GpuType} GPU]: {Data}", gpuType, args.Data);
-		await conversion.Start(token);
-	}
-
-	private static async Task RunFirstPass(IVideoStream videoStream, FileNamer file, CancellationToken token)
-	{
-		var conversion = FFmpeg.Conversions.New()
-			.AddStream(videoStream)
-			.AddParameter($"-pass 1")
-			.AddParameter($"-passlogfile \"{file.StatFileName}\"")
-			.AddParameter("-an")
-			.SetOutput(file.TempFirstPassPath);
-
-		conversion.OnDataReceived += (sender, args) => Log.Information("FFmpeg [Pass1]: {Data}", args.Data);
-		await conversion.Start(token);
-
-		if (File.Exists(file.TempFirstPassPath))
-			File.Delete(file.TempFirstPassPath);
-	}
-
-	private static async Task RunSecondPass(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, FileNamer file, CancellationToken token)
-	{
-		var conversion = FFmpeg.Conversions.New()
-			.AddStream(videoStream)
-			.AddParameter($"-pass 2")
-			.AddParameter($"-passlogfile \"{file.StatFileName}\"")
-			.SetOutput(file.TempPath);
-
-		foreach (var audioStream in audioStreams)
-		{
-			conversion.AddStream(audioStream);
-		}
-
-		conversion.OnDataReceived += (sender, args) => Log.Information("FFmpeg [Pass2]: {Data}", args.Data);
 		await conversion.Start(token);
 	}
 
