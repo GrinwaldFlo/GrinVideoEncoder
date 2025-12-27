@@ -9,7 +9,6 @@ public class VideoIndexerService : BackgroundService
 	private readonly IAppSettings _settings;
 	private readonly VideoProcessorService _videoProcessor;
 	private readonly string _dbPath;
-	private FileSystemWatcher? _watcher;
 
 	private long MinFileSizeBytes => _settings.MinFileSizeMB * 1024L * 1024L;
 
@@ -36,7 +35,6 @@ public class VideoIndexerService : BackgroundService
 
 		await InitializeDatabase();
 		await IndexExistingFiles(stoppingToken);
-		StartFileWatcher();
 
 		Log.Information("Video indexer watching for changes in {IndexerPath}", _settings.IndexerPath);
 
@@ -44,8 +42,6 @@ public class VideoIndexerService : BackgroundService
 		{
 			await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
 		}
-
-		_watcher?.Dispose();
 	}
 
 	private async Task InitializeDatabase()
@@ -103,53 +99,6 @@ public class VideoIndexerService : BackgroundService
 
 		// Checkpoint WAL after scanning to commit all indexed files to the main database
 		await VideoIndexerDbContext.CheckpointWalAsync(_dbPath);
-	}
-
-	private void StartFileWatcher()
-	{
-		_watcher = new FileSystemWatcher(_settings.IndexerPath)
-		{
-			EnableRaisingEvents = true,
-			IncludeSubdirectories = true,
-			NotifyFilter = NotifyFilters.FileName | NotifyFilters.Size | NotifyFilters.LastWrite
-		};
-
-		_watcher.Created += async (sender, e) => await OnFileCreated(e.FullPath);
-		_watcher.Changed += async (sender, e) => await OnFileChanged(e.FullPath);
-		_watcher.Deleted += async (sender, e) => await OnFileDeleted(e.FullPath);
-		_watcher.Renamed += async (sender, e) => await OnFileRenamed(e.OldFullPath, e.FullPath);
-	}
-
-	private async Task OnFileCreated(string filePath)
-	{
-		if (!IsEligibleVideoFile(filePath))
-			return;
-
-		await Task.Delay(1000); // Wait for file to be fully written
-		await IndexFile(filePath);
-	}
-
-	private async Task OnFileChanged(string filePath)
-	{
-		if (!IsEligibleVideoFile(filePath))
-			return;
-
-		await UpdateFileIndex(filePath);
-	}
-
-	private async Task OnFileDeleted(string filePath)
-	{
-		await RemoveFromIndex(filePath);
-	}
-
-	private async Task OnFileRenamed(string oldPath, string newPath)
-	{
-		await RemoveFromIndex(oldPath);
-
-		if (IsEligibleVideoFile(newPath))
-		{
-			await IndexFile(newPath);
-		}
 	}
 
 	private async Task IndexFile(string filePath)
@@ -241,31 +190,6 @@ public class VideoIndexerService : BackgroundService
 		catch (Exception ex)
 		{
 			Log.Error(ex, "Failed to update index for file: {FilePath}", filePath);
-		}
-	}
-
-	private async Task RemoveFromIndex(string filePath)
-	{
-		try
-		{
-			var fileInfo = new FileInfo(filePath);
-
-			await using var context = new VideoIndexerDbContext(_dbPath);
-
-			var existingFile = await context.VideoFiles
-				.FirstOrDefaultAsync(v => v.DirectoryPath == fileInfo.DirectoryName && v.Filename == fileInfo.Name);
-
-			if (existingFile == null)
-				return;
-
-			context.VideoFiles.Remove(existingFile);
-			await context.SaveChangesAsync();
-
-			Log.Information("Removed from index: {Filename}", fileInfo.Name);
-		}
-		catch (Exception ex)
-		{
-			Log.Error(ex, "Failed to remove file from index: {FilePath}", filePath);
 		}
 	}
 

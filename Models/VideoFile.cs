@@ -1,5 +1,12 @@
 namespace GrinVideoEncoder.Models;
 
+public enum CompressionStatus
+{
+	Original,
+	Compressed,
+	FailedToCompress
+}
+
 public class VideoFile
 {
 	public Guid Id { get; set; } = Guid.NewGuid();
@@ -21,6 +28,10 @@ public class VideoFile
 	public int? Height { get; set; }
 	public DateTime IndexedAt { get; set; } = DateTime.UtcNow;
 	public DateTime LastModified { get; set; }
+	/// <summary>
+	/// Indicates whether the video is original, compressed, or failed to compress.
+	/// </summary>
+	public CompressionStatus Status { get; set; } = CompressionStatus.Original;
 
 	public string FullPath => Path.Combine(DirectoryPath, Filename);
 
