@@ -1,4 +1,5 @@
 using GrinVideoEncoder;
+using GrinVideoEncoder.Data; // Add this using directive
 using Microsoft.AspNetCore.Hosting.Server; // Add this using directive
 using Microsoft.AspNetCore.Hosting.Server.Features;
 
@@ -17,6 +18,12 @@ var appSettings = builder.Configuration.GetSection("Settings").Get<AppSettings>(
 builder.Services.AddSingleton<IAppSettings>(appSettings);
 
 // Add services
+builder.Services.AddScoped<VideoIndexerDbContext>(provider => 
+{
+    var settings = provider.GetRequiredService<IAppSettings>();
+    return new VideoIndexerDbContext(settings.DatabasePath);
+});
+
 builder.Services.AddHostedService<MainBackgroundService>();
 builder.Services.AddHostedService<VideoIndexerService>();
 builder.Services.AddTransient<VideoProcessorService>();

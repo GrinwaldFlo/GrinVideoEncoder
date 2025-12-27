@@ -176,7 +176,7 @@ public class VideoIndexerService : BackgroundService
 				Filename = fileInfo.Name,
 				FileSizeOriginal = fileInfo.Length,
 				FileSizeCompressed = null,
-				Duration = duration,
+				DurationSeconds = (long?)duration?.TotalSeconds,
 				LastModified = fileInfo.LastWriteTimeUtc
 			};
 
@@ -219,7 +219,7 @@ public class VideoIndexerService : BackgroundService
 			var duration = await VideoProcessorService.GetVideoDuration(filePath);
 
 			existingFile.FileSizeOriginal = fileInfo.Length;
-			existingFile.Duration = duration;
+			existingFile.DurationSeconds = (long?)duration?.TotalSeconds;
 			existingFile.LastModified = fileInfo.LastWriteTimeUtc;
 			existingFile.IndexedAt = DateTime.UtcNow;
 
