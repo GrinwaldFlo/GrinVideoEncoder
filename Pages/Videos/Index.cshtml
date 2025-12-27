@@ -5,6 +5,12 @@
     ViewData["Title"] = "Videos";
 }
 
+<style>
+    .sort-header {
+        white-space: nowrap;
+    }
+</style>
+
 <h1>Videos</h1>
 
 <div class="card mb-4">
@@ -62,42 +68,42 @@
         <thead class="table-dark">
             <tr>
                 <th>
-                    <a href="@Model.GetSortUrl("Filename")" class="text-white text-decoration-none">
+                    <a href="@Model.GetSortUrl("Filename")" class="text-white text-decoration-none sort-header">
                         Filename @Model.GetSortIcon("Filename")
                     </a>
                 </th>
                 <th>
-                    <a href="@Model.GetSortUrl("Directory")" class="text-white text-decoration-none">
+                    <a href="@Model.GetSortUrl("Directory")" class="text-white text-decoration-none sort-header">
                         Directory @Model.GetSortIcon("Directory")
                     </a>
                 </th>
                 <th>
-                    <a href="@Model.GetSortUrl("Size")" class="text-white text-decoration-none">
+                    <a href="@Model.GetSortUrl("Size")" class="text-white text-decoration-none sort-header">
                         Size @Model.GetSortIcon("Size")
                     </a>
                 </th>
                 <th>
-                    <a href="@Model.GetSortUrl("Duration")" class="text-white text-decoration-none">
+                    <a href="@Model.GetSortUrl("Duration")" class="text-white text-decoration-none sort-header">
                         Duration @Model.GetSortIcon("Duration")
                     </a>
                 </th>
                 <th>
-                    <a href="@Model.GetSortUrl("Resolution")" class="text-white text-decoration-none">
+                    <a href="@Model.GetSortUrl("Resolution")" class="text-white text-decoration-none sort-header">
                         Resolution @Model.GetSortIcon("Resolution")
                     </a>
                 </th>
                 <th>
-                    <a href="@Model.GetSortUrl("QualityRatio")" class="text-white text-decoration-none">
+                    <a href="@Model.GetSortUrl("QualityRatio")" class="text-white text-decoration-none sort-header">
                         Quality @Model.GetSortIcon("QualityRatio")
                     </a>
                 </th>
                 <th>
-                    <a href="@Model.GetSortUrl("CompressionFactor")" class="text-white text-decoration-none">
+                    <a href="@Model.GetSortUrl("CompressionFactor")" class="text-white text-decoration-none sort-header">
                         Compression @Model.GetSortIcon("CompressionFactor")
                     </a>
                 </th>
                 <th>
-                    <a href="@Model.GetSortUrl("IndexedAt")" class="text-white text-decoration-none">
+                    <a href="@Model.GetSortUrl("IndexedAt")" class="text-white text-decoration-none sort-header">
                         Indexed At @Model.GetSortIcon("IndexedAt")
                     </a>
                 </th>
