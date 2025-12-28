@@ -111,6 +111,11 @@
                     </a>
                 </th>
                 <th>
+                    <a href="@Model.GetSortUrl("Fps")" class="text-white text-decoration-none sort-header">
+                        Fps @Model.GetSortIcon("Fps")
+                    </a>
+                </th>
+                <th>
                     <a href="@Model.GetSortUrl("IndexedAt")" class="text-white text-decoration-none sort-header">
                         Indexed At @Model.GetSortIcon("IndexedAt")
                     </a>
@@ -169,6 +174,9 @@
                     </td>
                     <td>
                         @FormatCompressionFactor(item.CompressionFactor)
+                    </td>
+                    <td>
+                        @FormatFps(item.Fps)
                     </td>
                     <td>
                         @item.IndexedAt.ToString("yyyy-MM-dd HH:mm")
@@ -280,5 +288,12 @@
         if (!compressionFactor.HasValue)
             return "-";
         return $"{compressionFactor.Value:F1}%";
+    }
+
+    string FormatFps(double? fps)
+    {
+        if (!fps.HasValue)
+            return "-";
+        return $"{fps.Value:F0}";
     }
 }

@@ -132,18 +132,20 @@ public class VideoIndexerService : BackgroundService
 				DurationSeconds = (long?)mediaInfo?.Duration.TotalSeconds,
 				Width = videoStream?.Width,
 				Height = videoStream?.Height,
-				LastModified = fileInfo.LastWriteTimeUtc
+				LastModified = fileInfo.LastWriteTimeUtc,
+				Fps =videoStream?.Framerate
 			};
 
 			context.VideoFiles.Add(videoFile);
 			await context.SaveChangesAsync();
 
-			Log.Information("Indexed video: {Filename} ({Size:F2} MB, {Duration}, {Width}x{Height})",
+			Log.Information("Indexed video: {Filename} ({Size:F2} MB, {Duration}, {Width}x{Height}, {Framerate} FPS)",
 				fileInfo.Name,
 				fileInfo.Length / (1024.0 * 1024.0),
 				mediaInfo?.Duration,
 				videoStream?.Width,
-				videoStream?.Height);
+				videoStream?.Height,
+				videoStream?.Framerate);
 		}
 		catch (Exception ex)
 		{

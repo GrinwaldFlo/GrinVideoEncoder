@@ -33,6 +33,8 @@ public class VideoFile
 	/// </summary>
 	public CompressionStatus Status { get; set; } = CompressionStatus.Original;
 
+	public double? Fps { get; set; }
+
 	public string FullPath => Path.GetFullPath(Path.Combine(DirectoryPath, Filename));
 
 	/// <summary>
@@ -50,16 +52,16 @@ public class VideoFile
 	/// Quality ratio for compressed file normalized by resolution (bytes per pixel per second).
 	/// Lower values indicate more compression.
 	/// </summary>
-	public double? QualityRatioCompressed => FileSizeCompressed.HasValue && DurationSeconds.HasValue && DurationSeconds > 0 && TotalPixels.HasValue
-		? (double)FileSizeCompressed.Value / DurationSeconds.Value / TotalPixels.Value * 1000.0
+	public double? QualityRatioCompressed => FileSizeCompressed.HasValue && DurationSeconds.HasValue && Fps.HasValue && DurationSeconds > 0 && TotalPixels.HasValue
+		? (double)FileSizeCompressed.Value / DurationSeconds.Value / TotalPixels.Value * 1000.0 * ((Fps.Value - 30.0) + 1)
 		: null;
 
 	/// <summary>
 	/// Quality ratio for original file normalized by resolution (bytes per pixel per second).
 	/// Higher values may indicate over-quality suitable for re-encoding.
 	/// </summary>
-	public double? QualityRatioOriginal => DurationSeconds.HasValue && DurationSeconds > 0 && TotalPixels.HasValue
-		? (double)FileSizeOriginal / DurationSeconds.Value / TotalPixels.Value * 1000.0
+	public double? QualityRatioOriginal => DurationSeconds.HasValue && DurationSeconds > 0 && Fps.HasValue && TotalPixels.HasValue
+		? (double)FileSizeOriginal / DurationSeconds.Value / TotalPixels.Value * 1000.0 * ((Fps.Value - 30.0) + 1)
 		: null;
 
 	public double? QualityRatio => FileSizeCompressed.HasValue

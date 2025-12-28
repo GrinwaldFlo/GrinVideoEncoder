@@ -2,14 +2,15 @@ namespace GrinVideoEncoder.Interfaces;
 
 public interface IAppSettings
 {
-	string InputPath { get; set; }
-	string ProcessingPath { get; set; }
-	string OutputPath { get; set; }
-	string FailedPath { get; set; }
-	string TempPath { get; set; }
-	string TrashPath { get; set; }
+	string WorkPath { get; set; }
+	string InputPath { get;  }
+	string ProcessingPath { get;  }
+	string OutputPath { get; }
+	string FailedPath { get;  }
+	string TempPath { get;  }
+	string TrashPath { get;  }
 
-	string LogPath { get; set; }
+	string LogPath { get;  }
 
 	bool ForceCpu { get; set; }
 
@@ -28,7 +29,7 @@ public interface IAppSettings
 	/// <summary>
 	/// Path to the SQLite database file for the video indexer.
 	/// </summary>
-	string DatabasePath { get; set; }
+	string DatabasePath { get;  }
 
 	/// <summary>
 	/// List of video file extensions to index (e.g., ".mp4", ".mkv").
