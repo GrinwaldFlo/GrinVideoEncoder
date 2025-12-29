@@ -53,7 +53,7 @@ public class VideoFile
 	/// Lower values indicate more compression.
 	/// </summary>
 	public double? QualityRatioCompressed => FileSizeCompressed.HasValue && DurationSeconds.HasValue && Fps.HasValue && DurationSeconds > 0 && TotalPixels.HasValue
-		? (double)FileSizeCompressed.Value / DurationSeconds.Value / TotalPixels.Value * 1000.0 * ((Fps.Value - 30.0) + 1)
+		? (double)FileSizeCompressed.Value / DurationSeconds.Value / TotalPixels.Value * 1000.0 * (30.0 / Fps.Value)
 		: null;
 
 	/// <summary>
@@ -61,7 +61,7 @@ public class VideoFile
 	/// Higher values may indicate over-quality suitable for re-encoding.
 	/// </summary>
 	public double? QualityRatioOriginal => DurationSeconds.HasValue && DurationSeconds > 0 && Fps.HasValue && TotalPixels.HasValue
-		? (double)FileSizeOriginal / DurationSeconds.Value / TotalPixels.Value * 1000.0 * ((Fps.Value - 30.0) + 1)
+		? (double)FileSizeOriginal / DurationSeconds.Value / TotalPixels.Value * 1000.0 * (30.0 / Fps.Value)
 		: null;
 
 	public double? QualityRatio => FileSizeCompressed.HasValue

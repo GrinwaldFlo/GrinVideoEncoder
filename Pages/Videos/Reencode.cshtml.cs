@@ -19,7 +19,7 @@ public class ReencodeModel : PageModel
     }
 
     [BindProperty(SupportsGet = true)]
-    public double Threshold { get; set; } = 700.0;
+    public double Threshold { get; set; } = 900.0;
     public List<VideoFile> Videos { get; set; } = new();
 
     public async Task OnGetAsync()

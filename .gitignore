@@ -134,3 +134,7 @@ _NCrunch*
 /.vs
 /temp
 /.config
+/appsettings.Films.json
+/appsettings.Lab.json
+/appsettings.Rush.json
+/Properties/launchSettings.json

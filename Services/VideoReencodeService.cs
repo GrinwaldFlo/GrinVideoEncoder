@@ -48,8 +48,13 @@ public class VideoReencodeService : BackgroundService
 		long? compressedDuration = (long?)compressedInfo?.Duration.TotalSeconds;
 		long? originalPixels = video.TotalPixels;
 		long? compressedPixels = compressedInfo?.VideoStreams.FirstOrDefault()?.Width * compressedInfo?.VideoStreams.FirstOrDefault()?.Height;
+		double? originalFps = originalInfo?.VideoStreams.FirstOrDefault()?.Framerate;
+		double? compressedFps = compressedInfo?.VideoStreams.FirstOrDefault()?.Framerate;
 
-		if (success && originalDuration == compressedDuration && originalPixels == compressedPixels)
+		if (success && originalDuration != null && originalDuration == compressedDuration &&
+			originalPixels  != null && originalPixels == compressedPixels &&
+			originalFps != null && compressedFps != null && Math.Abs(originalFps.Value - compressedFps.Value) < 0.1
+			)
 		{
 			string indexerPath = Path.GetFullPath(_settings.IndexerPath);
 			string videoDirpath = Path.GetFullPath(video.DirectoryPath);

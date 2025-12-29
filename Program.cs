@@ -4,17 +4,20 @@ using Microsoft.AspNetCore.Hosting.Server; // Add this using directive
 using Microsoft.AspNetCore.Hosting.Server.Features;
 
 var builder = WebApplication.CreateBuilder(args);
+var appSettings = builder.Configuration.GetSection("Settings").Get<AppSettings>() ?? throw new Exception("Failed to load Application Settings");
 
-// Configure Serilog
 Log.Logger = new LoggerConfiguration()
-	.ReadFrom.Configuration(builder.Configuration)
-	.CreateLogger();
+    .MinimumLevel.Debug()
+    .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
+    .MinimumLevel.Override("System", Serilog.Events.LogEventLevel.Warning)
+    .WriteTo.File(Path.Combine(appSettings.LogPath, "GrinVideoEncoder.log"), rollingInterval: RollingInterval.Day)
+    .WriteTo.Console()
+    .CreateLogger();
 
 builder.Host.UseSerilog();
 
 Log.Information("Starting application");
 
-var appSettings = builder.Configuration.GetSection("Settings").Get<AppSettings>() ?? throw new Exception("Failed to load Application Settings");
 builder.Services.AddSingleton<IAppSettings>(appSettings);
 
 // Add services

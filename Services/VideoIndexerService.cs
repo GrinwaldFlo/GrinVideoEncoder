@@ -36,8 +36,6 @@ public class VideoIndexerService : BackgroundService
 		await InitializeDatabase();
 		await IndexExistingFiles(stoppingToken);
 
-		Log.Information("Video indexer watching for changes in {IndexerPath}", _settings.IndexerPath);
-
 		while (!stoppingToken.IsCancellationRequested)
 		{
 			await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);

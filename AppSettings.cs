@@ -9,10 +9,9 @@ public class AppSettings : IAppSettings
 	public string FailedPath => Path.GetFullPath(Path.Combine(WorkPath, "Failed"));
 	public string TempPath => Path.GetFullPath(Path.Combine(WorkPath, "Temp"));
 	public string LogPath => Path.GetFullPath(Path.Combine(WorkPath, "Log"));
-	public bool ForceCpu { get; set; } = false;
+	public string DatabasePath => Path.GetFullPath(Path.Combine(WorkPath, "videoindex.db"));
 
-	//<inheritdoc/>
-	public int BitrateKbS { get; set; } = 3000;
+	public bool ForceCpu { get; set; } = false;
 
 	/// <inheritdoc/>
 	public int QualityLevel { get; set; } = 23;
@@ -21,10 +20,7 @@ public class AppSettings : IAppSettings
 	public string IndexerPath { get; set; } = string.Empty;
 
 	/// <inheritdoc/>
-	public string DatabasePath => Path.GetFullPath(Path.Combine(WorkPath, "videoindex.db"));
-
-	/// <inheritdoc/>
-	public string[] VideoExtensions { get; set; } = [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm"];
+	public string[] VideoExtensions { get; set; } = [];
 
 	/// <inheritdoc/>
 	public int MinFileSizeMB { get; set; } = 100;
