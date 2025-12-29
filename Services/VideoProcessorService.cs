@@ -5,7 +5,7 @@ using static GrinVideoEncoder.Utils.GpuDetector;
 
 namespace GrinVideoEncoder.Services;
 
-public class VideoProcessorService(IAppSettings settings)
+public class VideoProcessorService(IAppSettings settings, Serilog.ILogger ffmpegLogger)
 {
 	public bool ReadyToProcess { get; private set; } = true;
 
@@ -212,8 +212,7 @@ public class VideoProcessorService(IAppSettings settings)
 
 		conversion.SetOutput(outputPath);
 
-
-		conversion.OnDataReceived += (sender, args) => Log.Information("FFmpeg [{GpuType} GPU]: {Data}", gpuType, args.Data);
+		conversion.OnDataReceived += (sender, args) => ffmpegLogger.Information("FFmpeg [{GpuType} GPU]: {Data}", gpuType, args.Data);
 		await conversion.Start(token);
 	}
 

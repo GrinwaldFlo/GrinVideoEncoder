@@ -14,6 +14,13 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
     .CreateLogger();
 
+var ffmpegLogger = new LoggerConfiguration()
+	.MinimumLevel.Information()
+	.WriteTo.File(Path.Combine(appSettings.LogPath, "Ffmpeg.log"), rollingInterval: RollingInterval.Day)
+	.CreateLogger();
+
+builder.Services.AddSingleton<Serilog.ILogger>(ffmpegLogger);
+
 builder.Host.UseSerilog();
 
 Log.Information("Starting application");

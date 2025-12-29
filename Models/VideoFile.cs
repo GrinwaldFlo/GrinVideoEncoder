@@ -5,7 +5,8 @@ public enum CompressionStatus
 	Original = 0,
 	Compressed = 1,
 	FailedToCompress = 2,
-	Bigger = 3
+	Bigger = 3,
+	Removed = 4
 }
 
 public class VideoFile

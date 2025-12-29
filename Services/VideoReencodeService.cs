@@ -20,8 +20,10 @@ public class VideoReencodeService : BackgroundService
 	public const string MP4_EXT = ".mp4";
 	private async Task ReencodeVideoAsync(VideoFile video)
 	{
+		if (_communication.VideoProcessToken.Token.IsCancellationRequested)
+			return;
 		// Step 1: Copy video to temp folder
-		string tempDir =Path.GetFullPath(Path.Combine(_settings.ProcessingPath, Guid.NewGuid().ToString()));
+		string tempDir = Path.GetFullPath(Path.Combine(_settings.ProcessingPath, Guid.NewGuid().ToString()));
 		Directory.CreateDirectory(tempDir);
 		string tempInputPath = Path.Combine(tempDir, video.Filename);
 		File.Copy(video.FullPath, tempInputPath, true);
@@ -33,8 +35,13 @@ public class VideoReencodeService : BackgroundService
 		bool success = false;
 		try
 		{
-			await _videoProcessor.EncodeVideo(tempInputPath, tempOutputPath);
+			await _videoProcessor.EncodeVideo(tempInputPath, tempOutputPath, _communication.VideoProcessToken.Token);
 			success = true;
+		}
+		catch (TaskCanceledException)
+		{
+			Log.Warning("Encoding canceled", video);
+			return;
 		}
 		catch (Exception ex)
 		{
@@ -52,16 +59,17 @@ public class VideoReencodeService : BackgroundService
 		double? compressedFps = compressedInfo?.VideoStreams.FirstOrDefault()?.Framerate;
 
 		if (success && originalDuration != null && originalDuration == compressedDuration &&
-			originalPixels  != null && originalPixels == compressedPixels &&
+			originalPixels != null && originalPixels == compressedPixels &&
 			originalFps != null && compressedFps != null && Math.Abs(originalFps.Value - compressedFps.Value) < 0.1
 			)
 		{
-			if(new FileInfo(tempInputPath).Length < new FileInfo(tempOutputPath).Length)
+			if (new FileInfo(tempInputPath).Length < new FileInfo(tempOutputPath).Length)
 			{
 				video.Status = CompressionStatus.Bigger;
+				Log.Warning("New video is bigger than original {Video} {OriginalSize:F0} [MB] <  {NewSize:F0} [MB]", video.FullPath, new FileInfo(tempInputPath).Length / (1024*1024.0), new FileInfo(tempOutputPath).Length / (1024 * 1024.0));
 			}
 			else
-			{ 
+			{
 				string indexerPath = Path.GetFullPath(_settings.IndexerPath);
 				string videoDirpath = Path.GetFullPath(video.DirectoryPath);
 				string relativePath = videoDirpath[indexerPath.Length..].TrimStart(Path.DirectorySeparatorChar);
@@ -79,6 +87,7 @@ public class VideoReencodeService : BackgroundService
 				// Step 6: Update indexation data
 				video.FileSizeCompressed = new FileInfo(video.FullPath).Length;
 				video.Status = CompressionStatus.Compressed;
+				Log.Information("New video successfully encoded {Video}, reduced of {CompressionFactor:F1}%", video.FullPath, video.CompressionFactor);
 			}
 		}
 		else
@@ -106,7 +115,7 @@ public class VideoReencodeService : BackgroundService
 
 		while (!stoppingToken.IsCancellationRequested)
 		{
-			if (!_communication.Status.IsRunning &&  _communication.VideoToProcess.Count > 0)
+			if (!_communication.Status.IsRunning && _communication.VideoToProcess.Count > 0)
 			{
 				_communication.Status.IsRunning = true;
 				var nextId = _communication.VideoToProcess.Pop();
@@ -119,10 +128,16 @@ public class VideoReencodeService : BackgroundService
 				}
 				await context.SaveChangesAsync();
 				_communication.Status.IsRunning = false;
+
+				if (_communication.VideoProcessToken.IsCancellationRequested)
+				{
+					_communication.VideoToProcess.Clear();
+					Log.Information("Encoding canceled");
+				}
 			}
 
 			Thread.Sleep(1000);
 		}
 	}
-	
+
 }

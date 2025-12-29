@@ -30,7 +30,8 @@ public class ReencodeModel : PageModel
     public async Task<IActionResult> OnPostAsync()
     {
         Videos = await _context.GetVideosWithHighQualityRatioAsync(Threshold);
-        if (Videos.Count > 0)
+		_comm.VideoProcessToken = new CancellationTokenSource();
+		if (Videos.Count > 0)
         {
 			foreach (var item in Videos)
 			{

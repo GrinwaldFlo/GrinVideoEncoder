@@ -9,7 +9,7 @@ namespace GrinVideoEncoder.Pages.Videos;
 public class IndexModel : PageModel
 {
     private readonly VideoIndexerDbContext _context;
-    private const int PageSize = 500;
+    private const int PageSize = 10000;
 
     public IndexModel(VideoIndexerDbContext context)
     {
