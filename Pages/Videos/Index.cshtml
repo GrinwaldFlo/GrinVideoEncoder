@@ -87,6 +87,11 @@
                 </th>
                 <th>
                     <a href="@Model.GetSortUrl("Size")" class="text-white text-decoration-none sort-header">
+                        Size ori. @Model.GetSortIcon("Size")
+                    </a>
+                </th>
+                <th>
+                    <a href="@Model.GetSortUrl("Size")" class="text-white text-decoration-none sort-header">
                         Size @Model.GetSortIcon("Size")
                     </a>
                 </th>
@@ -138,6 +143,9 @@
                             case CompressionStatus.FailedToCompress:
                                 <i class="bi bi-exclamation-triangle text-danger" title="Failed to Compress"></i>
                                 break;
+                            case CompressionStatus.Bigger:
+                                <i class="bi bi-graph-up text-warning" title="Bigger than original"></i>
+                                break;
                         }
                     </td>
                     <td title="@item.Filename">
@@ -162,6 +170,9 @@
                     </td>
                     <td>
                         @FormatFileSize(item.FileSizeOriginal)
+                    </td>
+                    <td>
+                        @FormatFileSize(item.FileSizeCompressed)
                     </td>
                     <td>
                         @FormatDuration(item.DurationSeconds)
@@ -243,8 +254,11 @@
 }
 
 @functions {
-    string FormatFileSize(long bytes)
+    string FormatFileSize(long? bytes)
     {
+        if (bytes == null)
+            return "-";
+
         if (bytes >= 1073741824) // GB
             return $"{bytes / 1073741824.0:F2} GB";
         if (bytes >= 1048576) // MB

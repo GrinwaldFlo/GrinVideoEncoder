@@ -2,9 +2,10 @@ namespace GrinVideoEncoder.Models;
 
 public enum CompressionStatus
 {
-	Original,
-	Compressed,
-	FailedToCompress
+	Original = 0,
+	Compressed = 1,
+	FailedToCompress = 2,
+	Bigger = 3
 }
 
 public class VideoFile
@@ -45,7 +46,7 @@ public class VideoFile
 		: null;
 
 	public double? CompressionFactor => FileSizeCompressed.HasValue && FileSizeOriginal > 0
-		? (double)FileSizeOriginal * 100.0 / FileSizeCompressed.Value
+		? (((double)FileSizeOriginal / FileSizeCompressed.Value) - 1) * 100.0
 		: null;
 
 	/// <summary>

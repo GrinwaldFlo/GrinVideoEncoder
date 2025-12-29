@@ -1,3 +1,4 @@
+using System.Linq;
 using GrinVideoEncoder.Data;
 using GrinVideoEncoder.Models;
 using Microsoft.EntityFrameworkCore;
@@ -55,18 +56,17 @@ public class VideoIndexerService : BackgroundService
 
 		var directories = new Stack<string>();
 		directories.Push(_settings.IndexerPath);
-		var indexedCount = 0;
+		int indexedCount = 0;
 
 		while (directories.Count > 0)
 		{
 			if (stoppingToken.IsCancellationRequested)
 				break;
 
-			var currentDir = directories.Pop();
-
+			string currentDir = directories.Pop();
 			try
 			{
-				foreach (var filePath in Directory.EnumerateFiles(currentDir))
+				foreach (string filePath in Directory.EnumerateFiles(currentDir))
 				{
 					if (stoppingToken.IsCancellationRequested)
 						break;
@@ -78,7 +78,7 @@ public class VideoIndexerService : BackgroundService
 					}
 				}
 
-				foreach (var subDir in Directory.EnumerateDirectories(currentDir))
+				foreach (string? subDir in Directory.EnumerateDirectories(currentDir).Where(IsEligibleFolder))
 				{
 					directories.Push(subDir);
 				}
@@ -97,6 +97,14 @@ public class VideoIndexerService : BackgroundService
 
 		// Checkpoint WAL after scanning to commit all indexed files to the main database
 		await VideoIndexerDbContext.CheckpointWalAsync(_dbPath);
+	}
+
+	private bool IsEligibleFolder(string fullpath)
+	{
+		DirectoryInfo dir = new(fullpath);
+		if (_settings.IgnoreFolders.Contains(dir.Name, StringComparer.OrdinalIgnoreCase))
+			return false;
+		return true;
 	}
 
 	private async Task IndexFile(string filePath)

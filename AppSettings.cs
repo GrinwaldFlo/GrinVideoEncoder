@@ -20,9 +20,11 @@ public class AppSettings : IAppSettings
 	public string IndexerPath { get; set; } = string.Empty;
 
 	/// <inheritdoc/>
-	public string[] VideoExtensions { get; set; } = [];
+	public List<string> VideoExtensions { get; set; } = [];
 
 	/// <inheritdoc/>
 	public int MinFileSizeMB { get; set; } = 100;
 	public string WorkPath { get; set; } = "Data";
+
+	public List<string> IgnoreFolders { get; set; } = [];
 }

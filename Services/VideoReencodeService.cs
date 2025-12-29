@@ -56,24 +56,30 @@ public class VideoReencodeService : BackgroundService
 			originalFps != null && compressedFps != null && Math.Abs(originalFps.Value - compressedFps.Value) < 0.1
 			)
 		{
-			string indexerPath = Path.GetFullPath(_settings.IndexerPath);
-			string videoDirpath = Path.GetFullPath(video.DirectoryPath);
-			string relativePath = videoDirpath[indexerPath.Length..].TrimStart(Path.DirectorySeparatorChar);
+			if(new FileInfo(tempInputPath).Length < new FileInfo(tempOutputPath).Length)
+			{
+				video.Status = CompressionStatus.Bigger;
+			}
+			else
+			{ 
+				string indexerPath = Path.GetFullPath(_settings.IndexerPath);
+				string videoDirpath = Path.GetFullPath(video.DirectoryPath);
+				string relativePath = videoDirpath[indexerPath.Length..].TrimStart(Path.DirectorySeparatorChar);
 
-			// Step 4: Move original to trash (keep directory structure)
-			string trashDir = Path.GetFullPath(Path.Combine(_settings.TrashPath, relativePath));
-			Directory.CreateDirectory(trashDir);
-			string trashPath = Path.Combine(trashDir, video.Filename);
-			//throw new Exception("Not ready");
-			File.Move(tempInputPath, trashPath, true);
-			File.Delete(video.FullPath);
-			video.Filename = Path.ChangeExtension(video.Filename, MP4_EXT);
-			// Step 5: Move new file to original location
-			File.Move(tempOutputPath, video.FullPath, true);
+				// Step 4: Move original to trash (keep directory structure)
+				string trashDir = Path.GetFullPath(Path.Combine(_settings.TrashPath, relativePath));
+				Directory.CreateDirectory(trashDir);
+				string trashPath = Path.Combine(trashDir, video.Filename);
+				File.Move(tempInputPath, trashPath, true);
+				File.Delete(video.FullPath);
+				video.Filename = Path.ChangeExtension(video.Filename, MP4_EXT);
+				// Step 5: Move new file to original location
+				File.Move(tempOutputPath, video.FullPath, true);
 
-			// Step 6: Update indexation data
-			video.FileSizeCompressed = new FileInfo(video.FullPath).Length;
-			video.Status = CompressionStatus.Compressed;
+				// Step 6: Update indexation data
+				video.FileSizeCompressed = new FileInfo(video.FullPath).Length;
+				video.Status = CompressionStatus.Compressed;
+			}
 		}
 		else
 		{

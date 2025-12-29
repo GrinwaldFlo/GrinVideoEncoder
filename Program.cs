@@ -7,7 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 var appSettings = builder.Configuration.GetSection("Settings").Get<AppSettings>() ?? throw new Exception("Failed to load Application Settings");
 
 Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Debug()
+    .MinimumLevel.Information()
     .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
     .MinimumLevel.Override("System", Serilog.Events.LogEventLevel.Warning)
     .WriteTo.File(Path.Combine(appSettings.LogPath, "GrinVideoEncoder.log"), rollingInterval: RollingInterval.Day)

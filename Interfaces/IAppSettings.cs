@@ -34,10 +34,11 @@ public interface IAppSettings
 	/// <summary>
 	/// List of video file extensions to index (e.g., ".mp4", ".mkv").
 	/// </summary>
-	string[] VideoExtensions { get; set; }
+	List<string> VideoExtensions { get; set; }
 
 	/// <summary>
 	/// Minimum file size in MB for a video to be indexed.
 	/// </summary>
 	int MinFileSizeMB { get; set; }
+	List<string> IgnoreFolders { get; set; }
 }
