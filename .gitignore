@@ -138,3 +138,4 @@ _NCrunch*
 /appsettings.Lab.json
 /appsettings.Rush.json
 /Properties/launchSettings.json
+/run_Rush.bat
