@@ -1,0 +1,41 @@
+@inherits LayoutComponentBase
+
+<RadzenComponents @rendermode="InteractiveAuto" />
+
+<RadzenLayout>
+    <RadzenHeader>
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0">
+            <RadzenMenu>
+                <RadzenMenuItem Text="Home" Path="" Icon="home"></RadzenMenuItem>
+                <RadzenMenuItem Text="Videos" Path="videos" Icon="video_file"></RadzenMenuItem>
+                <RadzenMenuItem Text="Re-encode" Path="reencode" Icon="automation"></RadzenMenuItem>
+            </RadzenMenu>
+        </RadzenStack>
+    </RadzenHeader>
+    <RadzenBody>
+        <div class="rz-p-4">
+            @Body
+        </div>
+    </RadzenBody>
+    <RadzenFooter>
+        <RadzenStack Orientation="Orientation.Horizontal">
+            <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Secondary" Value="100" ShowValue="false" 
+            Mode="ProgressBarMode.Indeterminate" AriaLabel="Processing" Visible=@Comm.Status.IsRunning />
+            <RadzenBadge BadgeStyle="BadgeStyle.Base" Text=@Comm.Status.Status />
+                <RadzenText Text=@($"Last file: {Comm.Status.Filename}") />
+                <RadzenText Text=@($"Log: {Comm.Status.LogMain}") />
+                <RadzenText Text=@($"Log FFMPEG: {Comm.Status.LogFfmpeg}") />
+            <RadzenStack Orientation="Orientation.Vertical">
+
+            </RadzenStack>
+        </RadzenStack>
+
+    </RadzenFooter>
+</RadzenLayout>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="relo_cd">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+

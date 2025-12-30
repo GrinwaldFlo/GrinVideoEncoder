@@ -117,17 +117,17 @@ public class VideoReencodeService : BackgroundService
 		{
 			if (!_communication.Status.IsRunning && _communication.VideoToProcess.Count > 0)
 			{
-				_communication.Status.IsRunning = true;
+				await _communication.Status.SetIsRunningAsync(true);
 				var nextId = _communication.VideoToProcess.Pop();
 				await using var context = new VideoIndexerDbContext(_settings.DatabasePath);
 				var video = await context.VideoFiles.FirstOrDefaultAsync(x => x.Id == nextId, cancellationToken: stoppingToken);
 				if (video != null)
 				{
-					_communication.Status.Filename = video.FullPath;
+					await _communication.Status.SetFilenameAsync(video.FullPath);
 					await ReencodeVideoAsync(video);
 				}
 				await context.SaveChangesAsync();
-				_communication.Status.IsRunning = false;
+				await _communication.Status.SetIsRunningAsync(false);
 
 				if (_communication.VideoProcessToken.IsCancellationRequested)
 				{

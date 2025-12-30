@@ -1,7 +1,7 @@
 using GrinVideoEncoder;
-using GrinVideoEncoder.Data; // Add this using directive
-using Microsoft.AspNetCore.Hosting.Server; // Add this using directive
-using Microsoft.AspNetCore.Hosting.Server.Features;
+using GrinVideoEncoder.Components;
+using Microsoft.AspNetCore.Hosting.StaticWebAssets;
+using Radzen;
 
 var builder = WebApplication.CreateBuilder(args);
 var appSettings = builder.Configuration.GetSection("Settings").Get<AppSettings>() ?? throw new Exception("Failed to load Application Settings");
@@ -39,37 +39,32 @@ builder.Services.AddHostedService<VideoIndexerService>();
 builder.Services.AddHostedService<VideoReencodeService>();
 builder.Services.AddTransient<VideoProcessorService>();
 builder.Services.AddSingleton<CommunicationService>();
-builder.Services.AddRazorPages();
+builder.Services.AddRadzenComponents();
+
+builder.Services.AddRazorComponents()
+	.AddInteractiveServerComponents();
 
 var app = builder.Build();
 
+// Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
-	app.UseExceptionHandler("/Error");
+	app.UseExceptionHandler("/Error", createScopeForErrors: true);
 }
+app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+app.UseAntiforgery();
 
-app.UseStaticFiles();
-app.MapRazorPages()
-	.WithStaticAssets();
-
-app.Lifetime.ApplicationStarted.Register(() =>
-{
-	var server = app.Services.GetRequiredService<IServer>(); // Get the IServer instance
-	var addresses = server.Features.Get<IServerAddressesFeature>()?.Addresses; // Use the IServer instance to get the addresses
-	if (addresses != null)
-	{
-		foreach (string address in addresses)
-		{
-			Log.Information("Application is listening on address: {Address}", address);
-		}
-	}
-});
+app.MapStaticAssets();
+app.MapRazorComponents<App>()
+	.AddInteractiveServerRenderMode();
 
 using (var scope = app.Services.CreateScope())
 {
 	var videoProcessor = scope.ServiceProvider.GetRequiredService<VideoProcessorService>();
 	await videoProcessor.FfmpegDownload();
 }
+
+StaticWebAssetsLoader.UseStaticWebAssets(app.Environment, app.Configuration);
 
 // Checkpoint WAL at startup to commit any pending changes from previous runs
 await VideoIndexerDbContext.CheckpointWalAsync(appSettings.DatabasePath);

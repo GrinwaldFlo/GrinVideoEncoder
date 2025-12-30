@@ -4,6 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -15,22 +16,29 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="publish\**" />
-    <Compile Remove="temp\**" />
-    <Content Remove="publish\**" />
-    <Content Remove="temp\**" />
-    <EmbeddedResource Remove="publish\**" />
-    <EmbeddedResource Remove="temp\**" />
-    <None Remove="publish\**" />
-    <None Remove="temp\**" />
+    <Compile Remove="Backup\Index.cshtml.cs" />
+    <Compile Remove="Backup\Videos\Index.cshtml.cs" />
+    <Compile Remove="Backup\Videos\Reencode.cshtml.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Include=".github\upgrades\execution_log.md" />
+    <Content Remove="Backup\Index.cshtml" />
+    <Content Remove="Backup\Videos\Index.cshtml" />
+    <Content Remove="Backup\Videos\Reencode.cshtml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Backup\Index.cshtml" />
+    <None Include="Backup\Index.cshtml.cs" />
+    <None Include="Backup\Videos\Index.cshtml" />
+    <None Include="Backup\Videos\Index.cshtml.cs" />
+    <None Include="Backup\Videos\Reencode.cshtml" />
+    <None Include="Backup\Videos\Reencode.cshtml.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0-preview.4.25258.110" />
+    <PackageReference Include="Radzen.Blazor" Version="8.4.2" />
     <PackageReference Include="Serilog" Version="4.3.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />

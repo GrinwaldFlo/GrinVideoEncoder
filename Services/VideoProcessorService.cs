@@ -43,13 +43,12 @@ public class VideoProcessorService(IAppSettings settings, Serilog.ILogger ffmpeg
 	public async Task ProcessVideo(string filePath, CommunicationService communication)
 	{
 		var token = communication.VideoProcessToken.Token;
-		communication.Status.Filename = filePath;
+		await communication.Status.SetFilenameAsync(filePath);
 		if (!ReadyToProcess)
 			return;
 
-		communication.Status.Status = "Processing";
-		communication.Status.IsRunning = true;
-
+		await communication.Status.SetStatusAsync("Processing");
+		await communication.Status.SetIsRunningAsync(true);
 
 		FileNamer filename = new(settings, filePath);
 		try
@@ -59,22 +58,22 @@ public class VideoProcessorService(IAppSettings settings, Serilog.ILogger ffmpeg
 			await EncodeVideo(filename.ProcessingPath, filename.TempPath, token);
 
 			FinalizeProcessing(filename);
-			communication.Status.Status = "Done";
+			await communication.Status.SetStatusAsync("Done");
 		}
 		catch (OperationCanceledException)
 		{
 			HandleProcessingError(filename);
-			communication.Status.Status = $"Cancelled";
+			await communication.Status.SetStatusAsync($"Cancelled");
 			Log.Warning("Encoding cancelled {InputPath}", filename.InputPath);
 		}
 		catch (Exception ex)
 		{
 			HandleProcessingError(filename, ex);
-			communication.Status.Status = $"Failed";
+			await communication.Status.SetStatusAsync($"Failed");
 		}
 		finally
 		{
-			communication.Status.IsRunning = false;
+			await communication.Status.SetIsRunningAsync(false);
 		}
 	}
 
