@@ -8,14 +8,16 @@ namespace GrinVideoEncoder.Services;
 public class VideoIndexerService : BackgroundService
 {
 	private readonly IAppSettings _settings;
+	private readonly LogMain _log;
 	private readonly VideoProcessorService _videoProcessor;
 	private readonly string _dbPath;
 
 	private long MinFileSizeBytes => _settings.MinFileSizeMB * 1024L * 1024L;
 
-	public VideoIndexerService(IAppSettings settings, VideoProcessorService videoProcessor)
+	public VideoIndexerService(IAppSettings settings, LogMain log, VideoProcessorService videoProcessor)
 	{
 		_settings = settings;
+		_log = log;
 		_videoProcessor = videoProcessor;
 		_dbPath = _settings.DatabasePath;
 	}
@@ -24,13 +26,13 @@ public class VideoIndexerService : BackgroundService
 	{
 		if (string.IsNullOrEmpty(_settings.IndexerPath))
 		{
-			Log.Warning("IndexerPath is not configured. Video indexer service will not run.");
+			_log.Warning("IndexerPath is not configured. Video indexer service will not run.");
 			return;
 		}
 
 		if (!Directory.Exists(_settings.IndexerPath))
 		{
-			Log.Warning("IndexerPath '{IndexerPath}' does not exist. Video indexer service will not run.", _settings.IndexerPath);
+			_log.Warning("IndexerPath '{IndexerPath}' does not exist. Video indexer service will not run.", _settings.IndexerPath);
 			return;
 		}
 
@@ -47,12 +49,12 @@ public class VideoIndexerService : BackgroundService
 	{
 		await using var context = new VideoIndexerDbContext(_dbPath);
 		await context.Database.EnsureCreatedAsync();
-		Log.Information("Video indexer database initialized at {DatabasePath}", _dbPath);
+		_log.Information("Video indexer database initialized at {DatabasePath}", _dbPath);
 	}
 
 	private async Task IndexExistingFiles(CancellationToken stoppingToken)
 	{
-		Log.Information("Scanning for existing video files in {IndexerPath}", _settings.IndexerPath);
+		_log.Information("Scanning for existing video files in {IndexerPath}", _settings.IndexerPath);
 
 		var directories = new Stack<string>();
 		directories.Push(_settings.IndexerPath);
@@ -85,18 +87,18 @@ public class VideoIndexerService : BackgroundService
 			}
 			catch (UnauthorizedAccessException)
 			{
-				Log.Warning("Skipping directory due to access denied: {DirectoryPath}", currentDir);
+				_log.Warning("Skipping directory due to access denied: {DirectoryPath}", currentDir);
 			}
 			catch (Exception ex)
 			{
-				Log.Error(ex, "Error scanning directory: {DirectoryPath}", currentDir);
+				_log.Error(ex, "Error scanning directory: {DirectoryPath}", currentDir);
 			}
 		}
 
-		Log.Information("Initial indexing complete. Processed {Count} eligible files.", indexedCount);
+		_log.Information("Initial indexing complete. Processed {Count} eligible files.", indexedCount);
 
 		// Checkpoint WAL after scanning to commit all indexed files to the main database
-		await VideoIndexerDbContext.CheckpointWalAsync(_dbPath);
+		await VideoIndexerDbContext.CheckpointWalAsync(_dbPath, _log);
 	}
 
 	private bool IsEligibleFolder(string fullpath)
@@ -122,7 +124,7 @@ public class VideoIndexerService : BackgroundService
 
 			if (existingFile != null)
 			{
-				Log.Debug("File already indexed: {FilePath}", filePath);
+				_log.Debug("File already indexed: {FilePath}", filePath);
 				return;
 			}
 
@@ -145,17 +147,17 @@ public class VideoIndexerService : BackgroundService
 			context.VideoFiles.Add(videoFile);
 			await context.SaveChangesAsync();
 
-			Log.Information("Indexed video: {Filename} ({Size:F2} MB, {Duration}, {Width}x{Height}, {Framerate} FPS)",
+			_log.Information("Indexed video: {Filename} ({Size:F2} MB, {Duration}, {Width}x{Height}, {Framerate} FPS)",
 				fileInfo.Name,
 				fileInfo.Length / (1024.0 * 1024.0),
-				mediaInfo?.Duration,
-				videoStream?.Width,
-				videoStream?.Height,
-				videoStream?.Framerate);
+				mediaInfo?.Duration ?? new TimeSpan(),
+				videoStream?.Width ?? 0,
+				videoStream?.Height ?? 0,
+				videoStream?.Framerate ?? 0);
 		}
 		catch (Exception ex)
 		{
-			Log.Error(ex, "Failed to index file: {FilePath}", filePath);
+			_log.Error(ex, "Failed to index file: {FilePath}", filePath);
 		}
 	}
 
@@ -193,11 +195,11 @@ public class VideoIndexerService : BackgroundService
 
 			await context.SaveChangesAsync();
 
-			Log.Information("Updated index for: {Filename}", fileInfo.Name);
+			_log.Information("Updated index for: {Filename}", fileInfo.Name);
 		}
 		catch (Exception ex)
 		{
-			Log.Error(ex, "Failed to update index for file: {FilePath}", filePath);
+			_log.Error(ex, "Failed to update index for file: {FilePath}", filePath);
 		}
 	}
 

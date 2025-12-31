@@ -9,12 +9,14 @@ public class VideoReencodeService : BackgroundService
 {
 	private readonly VideoProcessorService _videoProcessor;
 	private readonly IAppSettings _settings;
+	private readonly LogMain _log;
 	private readonly CommunicationService _communication;
 
-	public VideoReencodeService(VideoProcessorService videoProcessor, IAppSettings settings, CommunicationService communication)
+	public VideoReencodeService(VideoProcessorService videoProcessor, IAppSettings settings, LogMain log, CommunicationService communication)
 	{
 		_videoProcessor = videoProcessor;
 		_settings = settings;
+		_log = log;
 		_communication = communication;
 	}
 	public const string MP4_EXT = ".mp4";
@@ -40,12 +42,12 @@ public class VideoReencodeService : BackgroundService
 		}
 		catch (TaskCanceledException)
 		{
-			Log.Warning("Encoding canceled", video);
+			_log.Warning("Encoding canceled", video);
 			return;
 		}
 		catch (Exception ex)
 		{
-			Log.Error("Encoding failed", ex, video);
+			_log.Error("Encoding failed", ex, video);
 		}
 
 		// Step 3: Check DurationSeconds and TotalPixels
@@ -66,7 +68,7 @@ public class VideoReencodeService : BackgroundService
 			if (new FileInfo(tempInputPath).Length < new FileInfo(tempOutputPath).Length)
 			{
 				video.Status = CompressionStatus.Bigger;
-				Log.Warning("New video is bigger than original {Video} {OriginalSize:F0} [MB] <  {NewSize:F0} [MB]", video.FullPath, new FileInfo(tempInputPath).Length / (1024*1024.0), new FileInfo(tempOutputPath).Length / (1024 * 1024.0));
+				_log.Warning("New video is bigger than original {Video} {OriginalSize:F0} [MB] <  {NewSize:F0} [MB]", video.FullPath, new FileInfo(tempInputPath).Length / (1024*1024.0), new FileInfo(tempOutputPath).Length / (1024 * 1024.0));
 			}
 			else
 			{
@@ -87,7 +89,7 @@ public class VideoReencodeService : BackgroundService
 				// Step 6: Update indexation data
 				video.FileSizeCompressed = new FileInfo(video.FullPath).Length;
 				video.Status = CompressionStatus.Compressed;
-				Log.Information("New video successfully encoded {Video}, reduced of {CompressionFactor:F1}%", video.FullPath, video.CompressionFactor);
+				_log.Information("New video successfully encoded {Video}, reduced of {CompressionFactor:F1}%", video.FullPath, video.CompressionFactor);
 			}
 		}
 		else
@@ -103,36 +105,36 @@ public class VideoReencodeService : BackgroundService
 		await Task.Delay(5000, stoppingToken);
 		if (string.IsNullOrEmpty(_settings.IndexerPath))
 		{
-			Log.Warning("IndexerPath is not configured. Video indexer service will not run.");
+			_log.Warning("IndexerPath is not configured. Video indexer service will not run.");
 			return;
 		}
 
 		if (!Directory.Exists(_settings.IndexerPath))
 		{
-			Log.Warning("IndexerPath '{IndexerPath}' does not exist. Video indexer service will not run.", _settings.IndexerPath);
+			_log.Warning("IndexerPath '{IndexerPath}' does not exist. Video indexer service will not run.", _settings.IndexerPath);
 			return;
 		}
 
 		while (!stoppingToken.IsCancellationRequested)
 		{
-			if (!_communication.Status.IsRunning && _communication.VideoToProcess.Count > 0)
+			if (!_communication.Status.IsRunning.Value && _communication.VideoToProcess.Count > 0)
 			{
-				await _communication.Status.SetIsRunningAsync(true);
+				_communication.Status.IsRunning.OnNext(true);
 				var nextId = _communication.VideoToProcess.Pop();
 				await using var context = new VideoIndexerDbContext(_settings.DatabasePath);
 				var video = await context.VideoFiles.FirstOrDefaultAsync(x => x.Id == nextId, cancellationToken: stoppingToken);
 				if (video != null)
 				{
-					await _communication.Status.SetFilenameAsync(video.FullPath);
+					_communication.Status.Filename.OnNext(video.FullPath);
 					await ReencodeVideoAsync(video);
 				}
 				await context.SaveChangesAsync();
-				await _communication.Status.SetIsRunningAsync(false);
+				_communication.Status.IsRunning.OnNext(false);
 
 				if (_communication.VideoProcessToken.IsCancellationRequested)
 				{
 					_communication.VideoToProcess.Clear();
-					Log.Information("Encoding canceled");
+					_log.Information("Encoding canceled");
 				}
 			}
 

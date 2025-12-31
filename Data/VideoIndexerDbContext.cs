@@ -3,20 +3,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GrinVideoEncoder.Data;
 
-public class VideoIndexerDbContext : DbContext
+public class VideoIndexerDbContext(string dbPath) : DbContext
 {
-	private readonly string _dbPath;
-
-	public VideoIndexerDbContext(string dbPath)
-	{
-		_dbPath = dbPath;
-	}
-
 	public DbSet<VideoFile> VideoFiles { get; set; } = null!;
 
 	protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 	{
-		optionsBuilder.UseSqlite($"Data Source={_dbPath}");
+		optionsBuilder.UseSqlite($"Data Source={dbPath}");
 	}
 
 	protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -34,11 +27,11 @@ public class VideoIndexerDbContext : DbContext
 	/// Checkpoints the WAL file to commit all pending changes to the main database file.
 	/// This reduces the WAL file size and ensures data durability.
 	/// </summary>
-	public static async Task CheckpointWalAsync(string dbPath)
+	public static async Task CheckpointWalAsync(string dbPath, LogMain log)
 	{
 		await using var context = new VideoIndexerDbContext(dbPath);
 		await context.Database.ExecuteSqlRawAsync("PRAGMA wal_checkpoint(TRUNCATE);");
-		Log.Information("SQLite WAL checkpoint completed for {DatabasePath}", dbPath);
+		log.Information("SQLite WAL checkpoint completed for {DatabasePath}", dbPath);
 	}
 
 	public async Task<List<VideoFile>> GetVideosWithHighQualityRatioAsync(double threshold)

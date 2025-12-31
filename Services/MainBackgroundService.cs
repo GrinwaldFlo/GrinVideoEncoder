@@ -1,16 +1,20 @@
-﻿namespace GrinVideoEncoder.Services;
+using Serilog;
+
+namespace GrinVideoEncoder.Services;
 
 public class MainBackgroundService : BackgroundService
 {
 	private readonly CommunicationService _communication;
 	private readonly IAppSettings _settings;
+	private readonly LogMain _log;
 	private readonly VideoProcessorService _videoProcessor;
 	private readonly FileSystemWatcher _watcher;
 
-	public MainBackgroundService(IAppSettings settings, VideoProcessorService videoProcessor, CommunicationService communication)
+	public MainBackgroundService(IAppSettings settings, LogMain log, VideoProcessorService videoProcessor, CommunicationService communication)
 	{
 		Directory.CreateDirectory(settings.InputPath);
 		_settings = settings;
+		_log = log;
 		_videoProcessor = videoProcessor;
 		_communication = communication;
 		_watcher = new FileSystemWatcher(settings.InputPath)
@@ -24,7 +28,7 @@ public class MainBackgroundService : BackgroundService
 	{
 		DirectoryInfo inputDir = new(_settings.InputPath);
 		FileInfo? file = null;
-		Log.Information("Checking for existing files in {InputPath}", _settings.InputPath);
+		_log.Information("Checking for existing files in {InputPath}", _settings.InputPath);
 		do
 		{
 			file = inputDir.GetFiles().OrderByDescending(f => f.LastWriteTime).FirstOrDefault();

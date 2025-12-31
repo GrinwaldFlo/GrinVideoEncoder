@@ -5,7 +5,7 @@ using static GrinVideoEncoder.Utils.GpuDetector;
 
 namespace GrinVideoEncoder.Services;
 
-public class VideoProcessorService(IAppSettings settings, Serilog.ILogger ffmpegLogger)
+public class VideoProcessorService(IAppSettings settings, LogFfmpeg log)
 {
 	public bool ReadyToProcess { get; private set; } = true;
 
@@ -21,9 +21,8 @@ public class VideoProcessorService(IAppSettings settings, Serilog.ILogger ffmpeg
 		{
 			return await FFmpeg.GetMediaInfo(filePath, token);
 		}
-		catch (Exception ex)
+		catch
 		{
-			Log.Warning(ex, "Failed to get media info for {FilePath}", filePath);
 			return null;
 		}
 	}
@@ -43,12 +42,12 @@ public class VideoProcessorService(IAppSettings settings, Serilog.ILogger ffmpeg
 	public async Task ProcessVideo(string filePath, CommunicationService communication)
 	{
 		var token = communication.VideoProcessToken.Token;
-		await communication.Status.SetFilenameAsync(filePath);
+		communication.Status.Filename.OnNext(filePath);
 		if (!ReadyToProcess)
 			return;
 
-		await communication.Status.SetStatusAsync("Processing");
-		await communication.Status.SetIsRunningAsync(true);
+		communication.Status.Status.OnNext("Processing");
+		communication.Status.IsRunning.OnNext(true);
 
 		FileNamer filename = new(settings, filePath);
 		try
@@ -58,36 +57,36 @@ public class VideoProcessorService(IAppSettings settings, Serilog.ILogger ffmpeg
 			await EncodeVideo(filename.ProcessingPath, filename.TempPath, token);
 
 			FinalizeProcessing(filename);
-			await communication.Status.SetStatusAsync("Done");
+			communication.Status.Status.OnNext("Done");
 		}
 		catch (OperationCanceledException)
 		{
 			HandleProcessingError(filename);
-			await communication.Status.SetStatusAsync($"Cancelled");
-			Log.Warning("Encoding cancelled {InputPath}", filename.InputPath);
+			communication.Status.Status.OnNext($"Cancelled");
+			log.Warning("Encoding cancelled {InputPath}", filename.InputPath);
 		}
 		catch (Exception ex)
 		{
 			HandleProcessingError(filename, ex);
-			await communication.Status.SetStatusAsync($"Failed");
+			communication.Status.Status.OnNext($"Failed");
 		}
 		finally
 		{
-			await communication.Status.SetIsRunningAsync(false);
+			communication.Status.IsRunning.OnNext(false);
 		}
 	}
 
-	private static void FinalizeProcessing(FileNamer filename)
+	private void FinalizeProcessing(FileNamer filename)
 	{
 		File.Move(filename.TempPath, filename.OutputPath);
 		File.Move(filename.ProcessingPath, filename.TrashPath);
-		Log.Information("Successfully processed {FinalPath}", filename.OutputPath);
+		log.Information("Successfully processed {FinalPath}", filename.OutputPath);
 	}
 
-	private static void HandleProcessingError(FileNamer file, Exception? ex = null)
+	private void HandleProcessingError(FileNamer file, Exception? ex = null)
 	{
 		if (ex != null)
-			Log.Error(ex, "Processing error");
+			log.Error(ex, "Processing error");
 		if (File.Exists(file.TempPath))
 			File.Delete(file.TempPath);
 		if (File.Exists(file.TempFirstPassPath))
@@ -113,7 +112,7 @@ public class VideoProcessorService(IAppSettings settings, Serilog.ILogger ffmpeg
 			}
 			catch (Exception ex) when (ex.Message.Contains("encoder") || ex.Message.Contains("GPU"))
 			{
-				Log.Warning("{GpuType} GPU encoding failed. Falling back to CPU encoding. Error: {ErrorMessage}", gpuType, ex.Message);
+				log.Warning("{GpuType} GPU encoding failed. Falling back to CPU encoding. Error: {ErrorMessage}", gpuType, ex.Message);
 				throw new Exception("No GPU found");
 				//videoStream = mediaInfo.VideoStreams.First();
 				//await ProcessWithCpu(videoStream, mediaInfo.AudioStreams, outputFilename, token);
@@ -126,13 +125,13 @@ public class VideoProcessorService(IAppSettings settings, Serilog.ILogger ffmpeg
 		}
 	}
 
-	private static async Task PrepareProcessing(FileNamer file)
+	private async Task PrepareProcessing(FileNamer file)
 	{
-		Log.Information("Waiting {FilePath} is ready", file.InputPath);
+		log.Information("Waiting {FilePath} is ready", file.InputPath);
 		await WaitForFile(file.InputPath, CancellationToken.None);
 
 		File.Move(file.InputPath, file.ProcessingPath);
-		Log.Information("Started processing {ProcessingPath}", file.ProcessingPath);
+		log.Information("Started processing {ProcessingPath}", file.ProcessingPath);
 	}
 
 	private async Task ProcessWithCpu(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, string output, CancellationToken token)
@@ -150,7 +149,7 @@ public class VideoProcessorService(IAppSettings settings, Serilog.ILogger ffmpeg
 		}
 
 		conversion.SetOutput(output);
-		conversion.OnDataReceived += (sender, args) => Log.Information("FFmpeg [CPU]: {Data}", args.Data);
+		conversion.OnDataReceived += (sender, args) => log.Information("FFmpeg [CPU]: {Data}", args.Data);
 		await conversion.Start(token);
 	}
 
@@ -211,7 +210,7 @@ public class VideoProcessorService(IAppSettings settings, Serilog.ILogger ffmpeg
 
 		conversion.SetOutput(outputPath);
 
-		conversion.OnDataReceived += (sender, args) => ffmpegLogger.Information("FFmpeg [{GpuType} GPU]: {Data}", gpuType, args.Data);
+		conversion.OnDataReceived += (sender, args) => log.Information("FFmpeg [{GpuType} GPU]: {Data}", gpuType, args.Data);
 		await conversion.Start(token);
 	}
 
@@ -281,11 +280,11 @@ public class VideoProcessorService(IAppSettings settings, Serilog.ILogger ffmpeg
 				throw new Exception($"FFmpeg exited with code {process.ExitCode}");
 			}
 
-			Log.Information("FFmpeg version: {Version}", output.Split('\n').FirstOrDefault()?.Trim());
+			log.Information("FFmpeg version: {Version}", output.Split('\n').FirstOrDefault()?.Trim());
 		}
 		catch (Exception ex)
 		{
-			Log.Fatal(ex, "FFmpeg is not working properly. Application will close.");
+			log.Fatal(ex, "FFmpeg is not working properly. Application will close.");
 			Environment.Exit(1);
 		}
 	}
