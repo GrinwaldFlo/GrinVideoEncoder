@@ -15,9 +15,42 @@ public abstract class GrinLogBase(string path, string name)
 
 	public List<string> History { get; } = [];
 
+	private static string GetSerilogPropertyName(string template, int index)
+	{
+		int count = -1;
+		int start = 0;
+		while (true)
+		{
+			int open = template.IndexOf('{', start);
+			if (open == -1) return index.ToString();
+			int close = template.IndexOf('}', open);
+			if (close == -1) return index.ToString();
+			count++;
+			if (count == index)
+				return template.Substring(open + 1, close - open - 1);
+			start = close + 1;
+		}
+	}
+
 	private void AddLine(string line, params object?[]? args)
 	{
-		string str = args == null ? line : string.Format(line, args);
+		string str;
+		if(args != null && args.Length > 0)
+		{
+			string formattedLine = line;
+			if (args != null && args.Length > 0)
+			{
+				for (int i = 0; i < args.Length; i++)
+				{
+					formattedLine = formattedLine.Replace("{" + GetSerilogPropertyName(line, i) + "}", "{" + i + "}");
+				}
+			}
+			str = args == null ? line : string.Format(formattedLine, args);
+		}
+		else
+		{
+			str = line;
+		}
 
 		History.Add(str);
 		if (History.Count > 5000)
