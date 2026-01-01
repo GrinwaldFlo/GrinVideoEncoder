@@ -16,19 +16,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Backup\Videos\Reencode.cshtml.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Content Remove="Backup\Videos\Reencode.cshtml" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Include="Backup\Videos\Reencode.cshtml" />
-    <None Include="Backup\Videos\Reencode.cshtml.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0-preview.4.25258.110" />
     <PackageReference Include="Radzen.Blazor" Version="8.4.2" />
     <PackageReference Include="Serilog" Version="4.3.0" />
