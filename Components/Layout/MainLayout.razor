@@ -20,11 +20,11 @@
     <RadzenFooter>
         <RadzenStack Orientation="Orientation.Horizontal">
             <div style="width:200px">
-            <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Secondary" Value="100" ShowValue="false"
+                <RadzenBadge BadgeStyle="BadgeStyle.Base" Text=@Comm.Status.Status.Value />
+                <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Secondary" Value="100" ShowValue="false"
                                        Mode="ProgressBarMode.Indeterminate" AriaLabel="Processing" Visible=@Comm.Status.IsRunning.Value />
             </div>
-            <RadzenBadge BadgeStyle="BadgeStyle.Base" Text=@Comm.Status.Status.Value />
-            <RadzenStack Orientation="Orientation.Vertical">
+            <RadzenStack Orientation="Orientation.Vertical" Gap="0.1rem">
                 <RadzenText Text=@($"Last file: {Comm.Status.Filename.Value}") />
                 <RadzenText Text=@($"Log: {LogMain.LastLine.Value}") />
                 <RadzenText Text=@($"Log FFMPEG: {LogFfmpeg.LastLine.Value}") />

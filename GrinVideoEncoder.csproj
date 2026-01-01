@@ -16,22 +16,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Backup\Index.cshtml.cs" />
-    <Compile Remove="Backup\Videos\Index.cshtml.cs" />
     <Compile Remove="Backup\Videos\Reencode.cshtml.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Remove="Backup\Index.cshtml" />
-    <Content Remove="Backup\Videos\Index.cshtml" />
     <Content Remove="Backup\Videos\Reencode.cshtml" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="Backup\Index.cshtml" />
-    <None Include="Backup\Index.cshtml.cs" />
-    <None Include="Backup\Videos\Index.cshtml" />
-    <None Include="Backup\Videos\Index.cshtml.cs" />
     <None Include="Backup\Videos\Reencode.cshtml" />
     <None Include="Backup\Videos\Reencode.cshtml.cs" />
   </ItemGroup>

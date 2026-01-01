@@ -12,7 +12,7 @@ public enum CompressionStatus
 	Kept = 7
 }
 
-public class VideoFile
+public partial class VideoFile
 {
 	public Guid Id { get; set; } = Guid.NewGuid();
 	public string DirectoryPath { get; set; } = string.Empty;
@@ -72,4 +72,6 @@ public class VideoFile
 	public double? QualityRatio => FileSizeCompressed.HasValue
 		? QualityRatioCompressed
 		: QualityRatioOriginal;
+
+
 }

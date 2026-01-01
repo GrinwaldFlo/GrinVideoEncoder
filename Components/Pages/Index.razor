@@ -1,5 +1,8 @@
 @page "/"
 
+<RadzenStack Orientation="Orientation.Horizontal">
+    <RadzenButton Text="Cancel task" Click="CancelTask" Visible=Comm.Status.IsRunning.Value />
+</RadzenStack>
 
 <RadzenText Text="Main log" />
 <EventConsole @ref="_consoleMain" />

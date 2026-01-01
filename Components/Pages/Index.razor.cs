@@ -60,4 +60,8 @@ public partial class Index : IDisposable
 		GC.SuppressFinalize(this);
 	}
 
+    private async Task CancelTask(Microsoft.AspNetCore.Components.Web.MouseEventArgs args)
+    {
+		await Comm.VideoProcessToken.CancelAsync();
+	}
 }
