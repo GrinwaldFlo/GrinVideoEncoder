@@ -22,21 +22,21 @@ public partial class Index : IDisposable
 
 		if(firstRender)
 		{ 
-			FillConsole(LogMain, _consoleMain);
-			FillConsole(LogFfmpeg, _consoleFfmpeg);
+			await FillConsole(LogMain, _consoleMain);
+			await FillConsole(LogFfmpeg, _consoleFfmpeg);
 
-			_disposables.Add(LogMain.LastLine.Subscribe(newLine => _consoleMain?.Log(newLine)));
-			_disposables.Add(LogFfmpeg.LastLine.Subscribe(newLine => _consoleFfmpeg?.Log(newLine)));
+			_disposables.Add(LogMain.LastLine.Subscribe(async newLine => await _consoleMain!.LogAsync(newLine)));
+			_disposables.Add(LogFfmpeg.LastLine.Subscribe(async newLine => await _consoleFfmpeg!.LogAsync(newLine)));
 		}
 	}
 
-	private static void FillConsole(GrinLogBase v, EventConsole? console)
+	private static async Task FillConsole(GrinLogBase v, EventConsole? console)
 	{
 		if (console == null) return;
 
 		foreach (string line in v.History)
 		{
-			console.Log(line);
+			await console.LogAsync(line);
 		}
 	}
 
@@ -64,4 +64,8 @@ public partial class Index : IDisposable
     {
 		await Comm.VideoProcessToken.CancelAsync();
 	}
+    private static void CloseApplication()
+    {
+        Environment.Exit(0);
+    }
 }

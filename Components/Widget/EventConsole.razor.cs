@@ -8,19 +8,67 @@ namespace GrinVideoEncoder.Components.Widget;
 public partial class EventConsole
 {
 	public const int MAX_LINES = 1000;
-	class Message(string text, DateTime? date = null, AlertStyle alertStyle = AlertStyle.Info)
-	{
-		public DateTime? Date { get; set; } = date;	
-		public string Text { get; set; } = text;
-		public AlertStyle AlertStyle { get; set; } = alertStyle;
-	}
+	private readonly List<Message> _messages = [];
+
+	private readonly SemaphoreSlim _messagesSemaphore = new(1, 1);
 
 	[Parameter(CaptureUnmatchedValues = true)]
 	public IDictionary<string, object> Attributes { get; set; } = null!;
 
-	readonly List<Message> _messages = [];
+	[Inject] private IJSRuntime Js { get; set; } = null!;
 
-	[Inject] IJSRuntime Js { get; set; } = null!;
+	[Parameter] public string Title { get; set; } = "Log";
+
+	public async Task Clear()
+	{
+		await _messagesSemaphore.WaitAsync();
+		try
+		{
+			_messages.Clear();
+		}
+		finally
+		{
+			_messagesSemaphore.Release();
+		}
+
+		await InvokeAsync(StateHasChanged);
+	}
+
+	public async Task LogAsync(string message, AlertStyle alertStyle = AlertStyle.Info)
+	{
+		await _messagesSemaphore.WaitAsync();
+		try
+		{
+			_messages.Add(new Message(message, null, alertStyle));
+			if (_messages.Count > MAX_LINES)
+				_messages.RemoveAt(0);
+		}
+		finally
+		{
+			_messagesSemaphore.Release();
+		}
+
+		await InvokeAsync(StateHasChanged);
+	}
+
+	public async Task LogAsync(object value)
+	{
+		await LogAsync(JsonSerializer.Serialize(value));
+	}
+
+	// Helper method for the render loop to safely access messages
+	protected IReadOnlyList<Message> GetMessages()
+	{
+		_messagesSemaphore.Wait();
+		try
+		{
+			return [.. _messages];
+		}
+		finally
+		{
+			_messagesSemaphore.Release();
+		}
+	}
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
@@ -30,29 +78,10 @@ public partial class EventConsole
 		}
 	}
 
-	void OnClearClick()
+	public class Message(string text, DateTime? date = null, AlertStyle alertStyle = AlertStyle.Info)
 	{
-		Clear();
-	}
-
-	public void Clear()
-	{
-		_messages.Clear();
-
-		InvokeAsync(StateHasChanged);
-	}
-
-	public void Log(string message, AlertStyle alertStyle = AlertStyle.Info)
-	{
-		_messages.Add(new Message(message, null, alertStyle));
-		if (_messages.Count > MAX_LINES)
-			_messages.RemoveAt(0);
-
-		InvokeAsync(StateHasChanged);
-	}
-
-	public void Log(object value)
-	{
-		Log(JsonSerializer.Serialize(value));
+		public AlertStyle AlertStyle { get; set; } = alertStyle;
+		public DateTime? Date { get; set; } = date;
+		public string Text { get; set; } = text;
 	}
 }

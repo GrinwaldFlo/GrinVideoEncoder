@@ -2,10 +2,9 @@
 
 <RadzenStack Orientation="Orientation.Horizontal">
     <RadzenButton Text="Cancel task" Click="CancelTask" Visible=Comm.Status.IsRunning.Value />
+    <RadzenButton Text="Close" Click="CloseApplication" Visible=!Comm.Status.IsRunning.Value />
 </RadzenStack>
 
-<RadzenText Text="Main log" />
-<EventConsole @ref="_consoleMain" />
+<EventConsole @ref="_consoleMain" Title="Main log" />
 
-<RadzenText Text="FFMPEG log" />
-<EventConsole @ref="_consoleFfmpeg" /> 
+<EventConsole @ref="_consoleFfmpeg" Title="FFMPEG log" /> 

@@ -6,19 +6,19 @@ AllowSorting="true" AllowVirtualization=true      AllowPaging="false" PagerHoriz
                 Data="@_videos" LogicalFilterOperator="LogicalFilterOperator.Or" SelectionMode="DataGridSelectionMode.Single"
                 Style="height:600px" Density="Density.Compact" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
     <Columns>
-        <RadzenDataGridColumn Property="@nameof(VideoFile.Status)" Title="Status" Frozen="true" Sortable="false" Width="80px" TextAlign="TextAlign.Center">
+        <RadzenDataGridColumn Property="@nameof(VideoFile.Status)" Title="Status" Frozen="true" Sortable="false" Width="150px" TextAlign="TextAlign.Center">
             <Template Context="data">
                 <RadzenIcon title=@data.StatusDisplayName IconColor=@data.StatusColor Icon=@data.StatusIcon />                
             </Template>
         </RadzenDataGridColumn>
-        <RadzenDataGridColumn Property="@nameof(VideoFile.Filename)" Title="Filename" />
-        <RadzenDataGridColumn Property="@nameof(VideoFile.DirectoryPath)" Title="Directory" />
-        <RadzenDataGridColumn Property="@nameof(VideoFile.FileSizeOriginalFormatted)" Title="Size ori." SortProperty="@nameof(VideoFile.FileSizeOriginal)" />
-        <RadzenDataGridColumn Property="@nameof(VideoFile.FileSizeCompressedFormatted)" Title="Size" SortProperty="@nameof(VideoFile.FileSizeCompressed)" />
-        <RadzenDataGridColumn Property="@nameof(VideoFile.DurationFormatted)" Title="Duration" SortProperty="@nameof(VideoFile.DurationSeconds)" />
-        <RadzenDataGridColumn Property="@nameof(VideoFile.Resolution)" Title="Resolution" SortProperty="@nameof(VideoFile.TotalPixels)" />
-        <RadzenDataGridColumn Property="@nameof(VideoFile.QualityRatio)" Title="Quality" FormatString="{0:F0}" />
-        <RadzenDataGridColumn Property="@nameof(VideoFile.CompressionFactor)" Title="Comp." FormatString="{0:F0}%" />
-        <RadzenDataGridColumn Property="@nameof(VideoFile.Fps)" Title="FPS" />
+        <RadzenDataGridColumn Property="@nameof(VideoFile.Filename)" Title="Filename" MinWidth="100px" />
+        <RadzenDataGridColumn Property="@nameof(VideoFile.DirectoryPath)" Title="Directory" MinWidth="100px" />
+        <RadzenDataGridColumn Property="@nameof(VideoFile.FileSizeOriginalFormatted)" Title="Size ori." SortProperty="@nameof(VideoFile.FileSizeOriginal)" Width="100px" />
+        <RadzenDataGridColumn Property="@nameof(VideoFile.FileSizeCompressedFormatted)" Title="Size" SortProperty="@nameof(VideoFile.FileSizeCompressed)" Width="100px" />
+        <RadzenDataGridColumn Property="@nameof(VideoFile.DurationFormatted)" Title="Duration" SortProperty="@nameof(VideoFile.DurationSeconds)" Width="120px" />
+        <RadzenDataGridColumn Property="@nameof(VideoFile.Resolution)" Title="Resolution" SortProperty="@nameof(VideoFile.TotalPixels)" Width="100px" />
+        <RadzenDataGridColumn Property="@nameof(VideoFile.QualityRatio)" Title="Quality" FormatString="{0:F0}" Width="100px" />
+        <RadzenDataGridColumn Property="@nameof(VideoFile.CompressionFactor)" Title="Comp." FormatString="{0:F0}%" Width="100px" />
+        <RadzenDataGridColumn Property="@nameof(VideoFile.Fps)" Title="FPS" Width="100px" />
     </Columns>
 </RadzenDataGrid>

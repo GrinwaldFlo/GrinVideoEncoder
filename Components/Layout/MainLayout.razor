@@ -25,9 +25,9 @@
                                        Mode="ProgressBarMode.Indeterminate" AriaLabel="Processing" Visible=@Comm.Status.IsRunning.Value />
             </div>
             <RadzenStack Orientation="Orientation.Vertical" Gap="0.1rem">
-                <RadzenText Text=@($"Last file: {Comm.Status.Filename.Value}") />
-                <RadzenText Text=@($"Log: {LogMain.LastLine.Value}") />
-                <RadzenText Text=@($"Log FFMPEG: {LogFfmpeg.LastLine.Value}") />
+                <RadzenText Text=@($"Last file: {Comm.Status.Filename.Value}") Style="font-size:70%;" />
+                <RadzenText Text=@($"Log: {LogMain.LastLine.Value}") Style="font-size:70%;" />
+                <RadzenText Text=@($"Log FFMPEG: {LogFfmpeg.LastLine.Value}") Style="font-size:70%;" />
             </RadzenStack>
         </RadzenStack>
 
