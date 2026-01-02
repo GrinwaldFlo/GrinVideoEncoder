@@ -8,12 +8,7 @@
 <RadzenTabs RenderMode="TabRenderMode.Client">
     <Tabs>
         <RadzenTabsItem Text="Dashboard">
-            <RadzenStack>
-            <RadzenCard Style="width:300px">
-                <RadzenLabel Text="Number of videos" />
-                <RadzenBadge Text=@_nbVideos.ToString() />
-            </RadzenCard>
-            </RadzenStack>
+            <Dashboard />
         </RadzenTabsItem>
         <RadzenTabsItem Text="Main log">
             <EventConsole @ref="_consoleMain" Title="Main log" />

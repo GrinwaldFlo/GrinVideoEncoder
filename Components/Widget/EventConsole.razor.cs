@@ -59,7 +59,7 @@ public partial class EventConsole
 	// Helper method for the render loop to safely access messages
 	protected IReadOnlyList<Message> GetMessages()
 	{
-		_messagesSemaphore.Wait();
+		_messagesSemaphore.WaitAsync();
 		try
 		{
 			return [.. _messages];

@@ -58,7 +58,7 @@ public partial class VideoFile
 	/// <summary>
 	/// Formats bytes to human-readable format (B, KB, MB, GB, TB)
 	/// </summary>
-	private static string FormatBytes(long? bytes)
+	public static string FormatBytes(long? bytes)
 	{
 		if (bytes == null)
 			return "-";
@@ -72,7 +72,7 @@ public partial class VideoFile
 			len /= 1024;
 		}
 
-		return $"{len:0.##} {sizes[order]}";
+		return $"{len:0.###} {sizes[order]}";
 	}
 
 	private static string FormatDuration(long? durationSeconds)

@@ -1,0 +1,19 @@
+<RadzenStack Orientation="Orientation.Horizontal" Wrap="FlexWrap.Wrap">
+    <RadzenCard Style="width:300px">
+        <RadzenLabel Text="Number of videos" />
+        <RadzenBadge Text=@_nbVideos.ToString() />
+    </RadzenCard>
+    <RadzenCard Style="width:300px">
+        <RadzenLabel Text="Compression rate" />
+        <RadzenBadge Text=@($"{CompressionRate:F0}%") />
+    </RadzenCard>
+    <RadzenCard Style="width:300px">
+        <RadzenLabel Text="Original size" />
+        <RadzenBadge Text=@($"{Models.VideoFile.FormatBytes(_sumByteOriginal):F0}") />
+    </RadzenCard>
+    <RadzenCard Style="width:300px">
+        <RadzenLabel Text="Compressed size" />
+        <RadzenBadge Text=@($"{Models.VideoFile.FormatBytes(_sumByteCompressed):F0}") />
+    </RadzenCard>
+
+</RadzenStack>
