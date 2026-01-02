@@ -15,5 +15,8 @@
         <RadzenLabel Text="Compressed size" />
         <RadzenBadge Text=@($"{Models.VideoFile.FormatBytes(_sumByteCompressed):F0}") />
     </RadzenCard>
-
+    <RadzenCard Style="width:300px">
+        <RadzenLabel Text="To compress size" />
+        <RadzenBadge Text=@($"{Models.VideoFile.FormatBytes(_sumByteToReEncode):F0}") />
+    </RadzenCard>
 </RadzenStack>

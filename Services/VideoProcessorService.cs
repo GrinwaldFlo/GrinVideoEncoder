@@ -39,6 +39,88 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log)
 		return mediaInfo?.Duration;
 	}
 
+	public static bool IsFileAvailable(string filePath)
+	{
+		try
+		{
+			using var stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.None);
+			if (stream.Length > 0)
+				return true;
+		}
+		catch
+		{
+			// Do nothing
+		}
+		return false;
+	}
+
+	public async Task EncodeVideo(string inputFilename, string outputFilename, CancellationToken token = default)
+	{
+		var gpuType = GpuDetector.DetectGpuVendor();
+		var mediaInfo = await FFmpeg.GetMediaInfo(inputFilename, token);
+		var videoStream = mediaInfo.VideoStreams.FirstOrDefault()
+			?? throw new Exception("No video stream found");
+
+		if (!settings.ForceCpu && gpuType is GpuDetector.GpuVendor.Nvidia or GpuDetector.GpuVendor.AMD)
+		{
+			try
+			{
+				await ProcessWithGpu(videoStream, mediaInfo.AudioStreams, mediaInfo.SubtitleStreams, outputFilename, gpuType, token);
+			}
+			catch (Exception ex) when (ex.Message.Contains("encoder") || ex.Message.Contains("GPU"))
+			{
+				log.Warning("{GpuType} GPU encoding failed. Falling back to CPU encoding. Error: {ErrorMessage}", gpuType, ex.Message);
+				throw new Exception("No GPU found");
+			}
+		}
+		else
+		{
+			throw new Exception("No GPU found");
+		}
+	}
+
+	/// <summary>
+	/// Downloads FFmpeg if not exists
+	/// </summary>
+	/// <returns></returns>
+	public async Task FfmpegDownload()
+	{
+		string ffmpegPath = Path.Combine(settings.TempPath, "ffmpeg");
+		if (!Directory.Exists(ffmpegPath))
+		{
+			Directory.CreateDirectory(ffmpegPath);
+		}
+		FFmpeg.SetExecutablesPath(ffmpegPath);
+		await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official, ffmpegPath);
+
+		string exePath = Path.Combine(ffmpegPath, "ffmpeg.exe");
+
+		try
+		{
+			using var process = new System.Diagnostics.Process();
+			process.StartInfo.FileName = exePath;
+			process.StartInfo.Arguments = "-version";
+			process.StartInfo.UseShellExecute = false;
+			process.StartInfo.RedirectStandardOutput = true;
+			process.StartInfo.CreateNoWindow = true;
+			process.Start();
+			string output = await process.StandardOutput.ReadToEndAsync();
+			await process.WaitForExitAsync();
+
+			if (process.ExitCode != 0)
+			{
+				throw new Exception($"FFmpeg exited with code {process.ExitCode}");
+			}
+
+			log.Information("FFmpeg version: {Version}", output.Split('\n').FirstOrDefault()?.Trim());
+		}
+		catch (Exception ex)
+		{
+			log.Fatal(ex, "FFmpeg is not working properly. Application will close.");
+			Environment.Exit(1);
+		}
+	}
+
 	public async Task ProcessVideo(string filePath, CommunicationService communication)
 	{
 		var token = communication.VideoProcessToken.Token;
@@ -48,7 +130,7 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log)
 
 		communication.Status.Status.OnNext("Processing");
 		communication.Status.IsRunning.OnNext(true);
-		
+
 		// Prevent system from sleeping during encoding
 		PowerManagement.PreventSleep();
 
@@ -81,6 +163,23 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log)
 		}
 	}
 
+	/// <summary>
+	/// Waits for the file to be ready for reading.
+	/// </summary>
+	/// <param name="filePath"></param>
+	/// <param name="token"></param>
+	/// <returns></returns>
+	private static async Task WaitForFile(string filePath, CancellationToken token)
+	{
+		while (!token.IsCancellationRequested)
+		{
+			if (IsFileAvailable(filePath))
+				return;
+
+			await Task.Delay(5000, token);
+		}
+	}
+
 	private void FinalizeProcessing(FileNamer filename)
 	{
 		File.Move(filename.TempPath, filename.OutputPath);
@@ -102,34 +201,6 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log)
 		}
 	}
 
-	public async Task EncodeVideo(string inputFilename, string outputFilename, CancellationToken token = default)
-	{
-		var gpuType = GpuDetector.DetectGpuVendor();
-		var mediaInfo = await FFmpeg.GetMediaInfo(inputFilename, token);
-		var videoStream = mediaInfo.VideoStreams.FirstOrDefault()
-			?? throw new Exception("No video stream found");
-
-		if (!settings.ForceCpu && gpuType is GpuDetector.GpuVendor.Nvidia or GpuDetector.GpuVendor.AMD)
-		{
-			try
-			{
-				await ProcessWithGpu(videoStream, mediaInfo.AudioStreams, mediaInfo.SubtitleStreams, outputFilename, gpuType, token);
-			}
-			catch (Exception ex) when (ex.Message.Contains("encoder") || ex.Message.Contains("GPU"))
-			{
-				log.Warning("{GpuType} GPU encoding failed. Falling back to CPU encoding. Error: {ErrorMessage}", gpuType, ex.Message);
-				throw new Exception("No GPU found");
-				//videoStream = mediaInfo.VideoStreams.First();
-				//await ProcessWithCpu(videoStream, mediaInfo.AudioStreams, outputFilename, token);
-			}
-		}
-		else
-		{
-			throw new Exception("No GPU found");
-			//await ProcessWithCpu(videoStream, mediaInfo.AudioStreams, outputFilename, token);
-		}
-	}
-
 	private async Task PrepareProcessing(FileNamer file)
 	{
 		log.Information("Waiting {FilePath} is ready", file.InputPath);
@@ -137,25 +208,6 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log)
 
 		File.Move(file.InputPath, file.ProcessingPath);
 		log.Information("Started processing {ProcessingPath}", file.ProcessingPath);
-	}
-
-	private async Task ProcessWithCpu(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, string output, CancellationToken token)
-	{
-		videoStream.SetCodec(VideoCodec.hevc);
-
-		var conversion = FFmpeg.Conversions.New()
-			.AddStream(videoStream)
-			.AddParameter($"-crf {settings.QualityLevel}")
-			.AddParameter("-preset medium");
-
-		foreach (var audioStream in audioStreams)
-		{
-			conversion.AddStream(audioStream);
-		}
-
-		conversion.SetOutput(output);
-		conversion.OnDataReceived += (sender, args) => log.Information("FFmpeg [CPU]: {Data}", args.Data);
-		await conversion.Start(token);
 	}
 
 	private async Task ProcessWithGpu(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, IEnumerable<ISubtitleStream> subtitleStreams, string outputPath,
@@ -217,80 +269,5 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log)
 
 		conversion.OnDataReceived += (sender, args) => log.Information("FFmpeg [{GpuType} GPU]: {Data}", gpuType, args.Data);
 		await conversion.Start(token);
-	}
-
-	/// <summary>
-	/// Waits for the file to be ready for reading.
-	/// </summary>
-	/// <param name="filePath"></param>
-	/// <param name="token"></param>
-	/// <returns></returns>
-	private static async Task WaitForFile(string filePath, CancellationToken token)
-	{
-		while (!token.IsCancellationRequested)
-		{
-			if (IsFileAvailable(filePath))
-				return;
-
-			await Task.Delay(5000, token);
-		}
-	}
-
-	public static bool IsFileAvailable(string filePath)
-	{
-		try
-		{
-			using var stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.None);
-			if (stream.Length > 0)
-				return true;
-		}
-		catch
-		{
-			// Do nothing
-		}
-		return false;
-	}
-
-
-	/// <summary>
-	/// Downloads FFmpeg if not exists
-	/// </summary>
-	/// <returns></returns>
-	public async Task FfmpegDownload()
-	{
-		string ffmpegPath = Path.Combine(settings.TempPath, "ffmpeg");
-		if (!Directory.Exists(ffmpegPath))
-		{
-			Directory.CreateDirectory(ffmpegPath);
-		}
-		FFmpeg.SetExecutablesPath(ffmpegPath);
-		await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official, ffmpegPath);
-
-		string exePath = Path.Combine(ffmpegPath, "ffmpeg.exe");
-
-		try
-		{
-			using var process = new System.Diagnostics.Process();
-			process.StartInfo.FileName = exePath;
-			process.StartInfo.Arguments = "-version";
-			process.StartInfo.UseShellExecute = false;
-			process.StartInfo.RedirectStandardOutput = true;
-			process.StartInfo.CreateNoWindow = true;
-			process.Start();
-			string output = await process.StandardOutput.ReadToEndAsync();
-			await process.WaitForExitAsync();
-
-			if (process.ExitCode != 0)
-			{
-				throw new Exception($"FFmpeg exited with code {process.ExitCode}");
-			}
-
-			log.Information("FFmpeg version: {Version}", output.Split('\n').FirstOrDefault()?.Trim());
-		}
-		catch (Exception ex)
-		{
-			log.Fatal(ex, "FFmpeg is not working properly. Application will close.");
-			Environment.Exit(1);
-		}
 	}
 }

@@ -7,12 +7,20 @@ namespace GrinVideoEncoder.Utils;
 /// </summary>
 public static class PowerManagement
 {
-	[DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-	private static extern uint SetThreadExecutionState(uint esFlags);
-
 	private const uint ES_CONTINUOUS = 0x80000000;
-	private const uint ES_SYSTEM_REQUIRED = 0x00000001;
+
 	private const uint ES_DISPLAY_REQUIRED = 0x00000002;
+
+	private const uint ES_SYSTEM_REQUIRED = 0x00000001;
+
+	/// <summary>
+	/// Allows the system to enter sleep mode normally.
+	/// Call this when the long-running operation is complete.
+	/// </summary>
+	public static void AllowSleep()
+	{
+		_ = SetThreadExecutionState(ES_CONTINUOUS);
+	}
 
 	/// <summary>
 	/// Prevents the system from entering sleep mode.
@@ -20,7 +28,7 @@ public static class PowerManagement
 	/// </summary>
 	public static void PreventSleep()
 	{
-		SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED);
+		_ = SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED);
 	}
 
 	/// <summary>
@@ -29,15 +37,9 @@ public static class PowerManagement
 	/// </summary>
 	public static void PreventSleepAndDisplay()
 	{
-		SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
+		_ = SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
 	}
 
-	/// <summary>
-	/// Allows the system to enter sleep mode normally.
-	/// Call this when the long-running operation is complete.
-	/// </summary>
-	public static void AllowSleep()
-	{
-		SetThreadExecutionState(ES_CONTINUOUS);
-	}
+	[DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+	private static extern uint SetThreadExecutionState(uint esFlags);
 }

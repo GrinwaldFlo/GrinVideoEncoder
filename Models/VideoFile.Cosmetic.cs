@@ -2,6 +2,20 @@ namespace GrinVideoEncoder.Models;
 
 public partial class VideoFile
 {
+	public string DurationFormatted => FormatDuration(DurationSeconds);
+
+	/// <summary>
+	/// Format FileSizeCompressed as human-readable string (e.g., "45.67 MB")
+	/// </summary>
+	public string FileSizeCompressedFormatted => FormatBytes(FileSizeCompressed);
+
+	/// <summary>
+	/// Format FileSizeOriginal as human-readable string (e.g., "123.45 MB")
+	/// </summary>
+	public string FileSizeOriginalFormatted => FormatBytes(FileSizeOriginal);
+
+	public string Resolution => FormatResolution(Width, Height);
+
 	public string StatusColor => Status switch
 	{
 		CompressionStatus.Original => "#6c757d",      // Gray
@@ -42,27 +56,13 @@ public partial class VideoFile
 	};
 
 	/// <summary>
-	/// Format FileSizeOriginal as human-readable string (e.g., "123.45 MB")
-	/// </summary>
-	public string FileSizeOriginalFormatted => FormatBytes(FileSizeOriginal);
-
-	/// <summary>
-	/// Format FileSizeCompressed as human-readable string (e.g., "45.67 MB")
-	/// </summary>
-	public string FileSizeCompressedFormatted => FormatBytes(FileSizeCompressed);
-
-	public string DurationFormatted => FormatDuration(DurationSeconds);
-
-	public string Resolution => FormatResolution(Width, Height);
-
-	/// <summary>
 	/// Formats bytes to human-readable format (B, KB, MB, GB, TB)
 	/// </summary>
 	public static string FormatBytes(long? bytes)
 	{
 		if (bytes == null)
 			return "-";
-		string[] sizes = { "B", "KB", "MB", "GB", "TB" };
+		string[] sizes = ["B", "KB", "MB", "GB", "TB"];
 		double len = bytes.Value;
 		int order = 0;
 
@@ -80,10 +80,10 @@ public partial class VideoFile
 		if (!durationSeconds.HasValue)
 			return "-";
 
-		var totalSeconds = durationSeconds.Value;
-		var hours = totalSeconds / 3600;
-		var minutes = (totalSeconds % 3600) / 60;
-		var seconds = totalSeconds % 60;
+		long totalSeconds = durationSeconds.Value;
+		long hours = totalSeconds / 3600;
+		long minutes = (totalSeconds % 3600) / 60;
+		long seconds = totalSeconds % 60;
 
 		if (hours >= 1)
 			return $"{hours}:{minutes:D2}:{seconds:D2}";
@@ -96,5 +96,4 @@ public partial class VideoFile
 			return "-";
 		return $"{width}×{height}";
 	}
-
 }

@@ -1,43 +1,66 @@
+using System.Reactive.Disposables;
 using GrinVideoEncoder.Models;
 using Microsoft.AspNetCore.Components;
 using Microsoft.EntityFrameworkCore;
 
 namespace GrinVideoEncoder.Components.Pages;
 
-public partial class ReEncode
+public partial class ReEncode : IDisposable
 {
-	[Inject] private VideoIndexerDbContext Context { get; set; } = null!;
-	[Inject] private CommunicationService CommunicationService { get; set; } = null!;
-
-	private double _threshold = 900.0;
 	private List<VideoFile> _videos = null!;
+	private bool _disposedValue;
+
+	public static double Threshold { get; set; } = 900.0;
+	[Inject] private CommunicationService Comm { get; set; } = null!;
+
+	private readonly CompositeDisposable _disposables = [];
 
 	protected override async Task OnInitializedAsync()
 	{
 		await base.OnInitializedAsync();
+		_disposables.Add(Comm.Status.IsRunning.Subscribe(async _ => await InvokeAsync(StateHasChanged)));
 		await RefreshDb();
 	}
 
+	private async Task RefreshDb()
+	{
+		using var Context = new VideoDbContext();
+		_videos = await Context.GetVideosWithHighQualityRatioAsync(Threshold);
+		await InvokeAsync(StateHasChanged);
+	}
 
 	private async Task StartReencoding()
 	{
 		await RefreshDb();
-		CommunicationService.VideoProcessToken = new CancellationTokenSource();
-		
+		Comm.VideoProcessToken = new CancellationTokenSource();
+
 		if (_videos.Count > 0)
 		{
 			foreach (var item in _videos)
 			{
-				CommunicationService.VideoToProcess.Push(item.Id);
+				Comm.VideoToProcess.Push(item.Id);
 			}
 		}
 		await InvokeAsync(StateHasChanged);
 	}
 
-	private async Task RefreshDb()
+	protected virtual void Dispose(bool disposing)
 	{
-		Context.ChangeTracker.Clear();
-		_videos = await Context.GetVideosWithHighQualityRatioAsync(_threshold);
-		await InvokeAsync(StateHasChanged);
+		if (!_disposedValue)
+		{
+			if (disposing)
+			{
+				_disposables.Dispose();
+			}
+
+			_disposedValue = true;
+		}
+	}
+
+	public void Dispose()
+	{
+		// Do not change this code. Put cleanup code in 'Dispose(bool disposing)' method
+		Dispose(disposing: true);
+		GC.SuppressFinalize(this);
 	}
 }

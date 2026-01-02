@@ -1,15 +1,17 @@
+using System;
 using GrinVideoEncoder.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace GrinVideoEncoder.Data;
 
-public class VideoIndexerDbContext(string dbPath) : DbContext
+public class VideoDbContext() : DbContext
 {
+	public static string DbPath { get; private set; } = string.Empty;
 	public DbSet<VideoFile> VideoFiles { get; set; } = null!;
 
 	protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 	{
-		optionsBuilder.UseSqlite($"Data Source={dbPath}");
+		optionsBuilder.UseSqlite($"Data Source={DbPath}");
 	}
 
 	protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -27,11 +29,11 @@ public class VideoIndexerDbContext(string dbPath) : DbContext
 	/// Checkpoints the WAL file to commit all pending changes to the main database file.
 	/// This reduces the WAL file size and ensures data durability.
 	/// </summary>
-	public static async Task CheckpointWalAsync(string dbPath, LogMain log)
+	public static async Task CheckpointWalAsync(LogMain log)
 	{
-		await using var context = new VideoIndexerDbContext(dbPath);
+		await using var context = new VideoDbContext();
 		await context.Database.ExecuteSqlRawAsync("PRAGMA wal_checkpoint(TRUNCATE);");
-		log.Information("SQLite WAL checkpoint completed for {DatabasePath}", dbPath);
+		log.Information("SQLite WAL checkpoint completed for {DatabasePath}", DbPath);
 	}
 
 	public async Task<List<VideoFile>> GetVideosWithHighQualityRatioAsync(double threshold)
@@ -42,5 +44,21 @@ public class VideoIndexerDbContext(string dbPath) : DbContext
 			.AsAsyncEnumerable()
 			.Where(v => v.QualityRatioOriginal.HasValue && v.QualityRatioOriginal > threshold)
 			.ToListAsync();
+	}
+
+	internal static void SetPath(string databasePath)
+	{
+		DbPath = databasePath;
+	}
+
+	internal static async Task ResetError(Guid id)
+	{
+		await using var context = new VideoDbContext();
+		var videoToReset = await context.VideoFiles.FirstOrDefaultAsync(x => x.Id == id);
+		if (videoToReset != null)
+		{
+			videoToReset.Status = CompressionStatus.Original;
+			await context.SaveChangesAsync();
+		}
 	}
 }

@@ -1,5 +1,7 @@
 @inherits LayoutComponentBase
 
+<PageTitle>GrinVideoEncoder</PageTitle>
+
 <RadzenComponents @rendermode="InteractiveAuto" />
 
 <RadzenLayout>
@@ -13,8 +15,10 @@
         </RadzenStack>
     </RadzenHeader>
     <RadzenBody>
-        <div class="rz-p-4">
-            @Body
+        <div class="rz-p-1">
+            <div style="height: calc(100vh - 180px); display: flex; flex-direction: column;">
+                @Body
+            </div>
         </div>
     </RadzenBody>
     <RadzenFooter>

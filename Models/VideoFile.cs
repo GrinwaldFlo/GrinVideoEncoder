@@ -14,44 +14,36 @@ public enum CompressionStatus
 
 public partial class VideoFile
 {
-	public Guid Id { get; set; } = Guid.NewGuid();
+	public double? CompressionFactor => FileSizeCompressed.HasValue && FileSizeOriginal > 0
+		? (((double)FileSizeOriginal / FileSizeCompressed.Value) - 1) * 100.0
+		: null;
+
 	public string DirectoryPath { get; set; } = string.Empty;
-	public string Filename { get; set; } = string.Empty;
-	public long FileSizeOriginal { get; set; }
-	public long? FileSizeCompressed { get; set; }
+
 	/// <summary>
 	/// Duration of the video in seconds.
 	/// </summary>
 	public long? DurationSeconds { get; set; }
-	/// <summary>
-	/// Video width in pixels.
-	/// </summary>
-	public int? Width { get; set; }
+
+	public string Filename { get; set; } = string.Empty;
+	public long? FileSizeCompressed { get; set; }
+	public long FileSizeOriginal { get; set; }
+	public double? Fps { get; set; }
+	public string FullPath => Path.GetFullPath(Path.Combine(DirectoryPath, Filename));
+
 	/// <summary>
 	/// Video height in pixels.
 	/// </summary>
 	public int? Height { get; set; }
+
+	public Guid Id { get; set; } = Guid.NewGuid();
 	public DateTime IndexedAt { get; set; } = DateTime.UtcNow;
+
 	public DateTime LastModified { get; set; }
-	/// <summary>
-	/// Indicates whether the video is original, compressed, or failed to compress.
-	/// </summary>
-	public CompressionStatus Status { get; set; } = CompressionStatus.Original;
 
-	public double? Fps { get; set; }
-
-	public string FullPath => Path.GetFullPath(Path.Combine(DirectoryPath, Filename));
-
-	/// <summary>
-	/// Total pixels per frame (Width × Height).
-	/// </summary>
-	public long? TotalPixels => Width.HasValue && Height.HasValue && Width > 0 && Height > 0
-		? (long)Width.Value * Height.Value
-		: null;
-
-	public double? CompressionFactor => FileSizeCompressed.HasValue && FileSizeOriginal > 0
-		? (((double)FileSizeOriginal / FileSizeCompressed.Value) - 1) * 100.0
-		: null;
+	public double? QualityRatio => FileSizeCompressed.HasValue
+			? QualityRatioCompressed
+			: QualityRatioOriginal;
 
 	/// <summary>
 	/// Quality ratio for compressed file normalized by resolution (bytes per pixel per second).
@@ -69,9 +61,20 @@ public partial class VideoFile
 		? (double)FileSizeOriginal / DurationSeconds.Value / TotalPixels.Value * 1000.0 * (30.0 / Fps.Value)
 		: null;
 
-	public double? QualityRatio => FileSizeCompressed.HasValue
-		? QualityRatioCompressed
-		: QualityRatioOriginal;
+	/// <summary>
+	/// Indicates whether the video is original, compressed, or failed to compress.
+	/// </summary>
+	public CompressionStatus Status { get; set; } = CompressionStatus.Original;
 
+	/// <summary>
+	/// Total pixels per frame (Width × Height).
+	/// </summary>
+	public long? TotalPixels => Width.HasValue && Height.HasValue && Width > 0 && Height > 0
+		? (long)Width.Value * Height.Value
+		: null;
 
+	/// <summary>
+	/// Video width in pixels.
+	/// </summary>
+	public int? Width { get; set; }
 }

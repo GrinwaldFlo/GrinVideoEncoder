@@ -1,4 +1,5 @@
 using System.Reactive.Disposables;
+using GrinVideoEncoder.Components.Pages;
 using Microsoft.AspNetCore.Components;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,9 +12,9 @@ public partial class Dashboard : IDisposable
 	private int _nbVideos = 0;
 	private long _sumByteCompressed = 0;
 	private long _sumByteOriginal = 0;
+	private long _sumByteToReEncode = 0;
 	[Inject] private CommunicationService Comm { get; set; } = null!;
 	private double CompressionRate => (_sumByteOriginal / (double)_sumByteCompressed - 1.0) * 100.0;
-	[Inject] private VideoIndexerDbContext Context { get; set; } = null!;
 
 	public void Dispose()
 	{
@@ -48,11 +49,16 @@ public partial class Dashboard : IDisposable
 
 	private async Task RefreshDb()
 	{
-		Context.ChangeTracker.Clear();
+		await using var context = new VideoDbContext();
+		context.ChangeTracker.Clear();
 
-		_nbVideos = await Context.VideoFiles.CountAsync();
-		_sumByteOriginal = await Context.VideoFiles.SumAsync(x => x.FileSizeOriginal);
-		_sumByteCompressed = await Context.VideoFiles.SumAsync(x => x.FileSizeCompressed ?? x.FileSizeOriginal);
+		_nbVideos = await context.VideoFiles.CountAsync();
+		_sumByteOriginal = await context.VideoFiles.SumAsync(x => x.FileSizeOriginal);
+		_sumByteCompressed = await context.VideoFiles.SumAsync(x => x.FileSizeCompressed ?? x.FileSizeOriginal);
+		var toEncode = await context.GetVideosWithHighQualityRatioAsync(ReEncode.Threshold);
+		_sumByteToReEncode = toEncode.Sum(x => x.FileSizeOriginal);
+
+		
 
 		await InvokeAsync(StateHasChanged);
 	}

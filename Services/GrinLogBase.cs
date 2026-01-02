@@ -5,7 +5,7 @@ namespace GrinVideoEncoder.Services;
 public abstract class GrinLogBase(string path, string name)
 {
 	public BehaviorSubject<string> LastLine { get; } = new(string.Empty);
-	private readonly Serilog.ILogger _log = new LoggerConfiguration()
+	private readonly Serilog.Core.Logger _log = new LoggerConfiguration()
 			.MinimumLevel.Information()
 			.MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
 			.MinimumLevel.Override("System", Serilog.Events.LogEventLevel.Warning)

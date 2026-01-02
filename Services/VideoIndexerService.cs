@@ -9,16 +9,14 @@ public class VideoIndexerService : BackgroundService
 {
 	private readonly IAppSettings _settings;
 	private readonly LogMain _log;
-	private readonly VideoProcessorService _videoProcessor;
 	private readonly string _dbPath;
 
 	private long MinFileSizeBytes => _settings.MinFileSizeMB * 1024L * 1024L;
 
-	public VideoIndexerService(IAppSettings settings, LogMain log, VideoProcessorService videoProcessor)
+	public VideoIndexerService(IAppSettings settings, LogMain log)
 	{
 		_settings = settings;
 		_log = log;
-		_videoProcessor = videoProcessor;
 		_dbPath = _settings.DatabasePath;
 	}
 
@@ -51,7 +49,7 @@ public class VideoIndexerService : BackgroundService
 		if (_settings.IgnoreFolders is null || _settings.IgnoreFolders.Count == 0)
 			return;
 
-		await using var context = new VideoIndexerDbContext(_dbPath);
+		await using var context = new VideoDbContext();
 
 		// Create a copy to avoid modification issues during iteration
 		var ignoreFolders = _settings.IgnoreFolders.ToList();
@@ -81,7 +79,7 @@ public class VideoIndexerService : BackgroundService
 
 	private async Task InitializeDatabase()
 	{
-		await using var context = new VideoIndexerDbContext(_dbPath);
+		await using var context = new VideoDbContext();
 		await context.Database.EnsureCreatedAsync();
 		_log.Information("Video indexer database initialized at {DatabasePath}", _dbPath);
 	}
@@ -132,7 +130,7 @@ public class VideoIndexerService : BackgroundService
 		_log.Information("Initial indexing complete. Processed {Count} eligible files.", indexedCount);
 
 		// Checkpoint WAL after scanning to commit all indexed files to the main database
-		await VideoIndexerDbContext.CheckpointWalAsync(_dbPath, _log);
+		await VideoDbContext.CheckpointWalAsync( _log);
 	}
 
 	private bool IsEligibleFolder(string fullpath)
@@ -151,7 +149,7 @@ public class VideoIndexerService : BackgroundService
 			if (!fileInfo.Exists)
 				return;
 
-			await using var context = new VideoIndexerDbContext(_dbPath);
+			await using var context = new VideoDbContext();
 
 			var existingFile = await context.VideoFiles
 				.FirstOrDefaultAsync(v => v.DirectoryPath == fileInfo.DirectoryName && v.Filename == fileInfo.Name);
@@ -203,7 +201,7 @@ public class VideoIndexerService : BackgroundService
 			if (!fileInfo.Exists)
 				return;
 
-			await using var context = new VideoIndexerDbContext(_dbPath);
+			await using var context = new VideoDbContext();
 
 			var existingFile = await context.VideoFiles
 				.FirstOrDefaultAsync(v => v.DirectoryPath == fileInfo.DirectoryName && v.Filename == fileInfo.Name);
@@ -241,7 +239,7 @@ public class VideoIndexerService : BackgroundService
 	{
 		try
 		{
-			var extension = Path.GetExtension(filePath).ToLowerInvariant();
+			string extension = Path.GetExtension(filePath).ToLowerInvariant();
 			if (!_settings.VideoExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
 				return false;
 
