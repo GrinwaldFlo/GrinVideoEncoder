@@ -48,6 +48,9 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log)
 
 		communication.Status.Status.OnNext("Processing");
 		communication.Status.IsRunning.OnNext(true);
+		
+		// Prevent system from sleeping during encoding
+		PowerManagement.PreventSleep();
 
 		FileNamer filename = new(settings, filePath);
 		try
@@ -72,6 +75,8 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log)
 		}
 		finally
 		{
+			// Allow system to sleep again after processing completes
+			PowerManagement.AllowSleep();
 			communication.Status.IsRunning.OnNext(false);
 		}
 	}

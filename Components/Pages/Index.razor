@@ -1,10 +1,27 @@
 @page "/"
 
 <RadzenStack Orientation="Orientation.Horizontal">
-    <RadzenButton Text="Cancel task" Click="CancelTask" Visible=Comm.Status.IsRunning.Value />
-    <RadzenButton Text="Close" Click="CloseApplication" Visible=!Comm.Status.IsRunning.Value />
+    <RadzenButton Icon="cancel" Text="Cancel task" Click="CancelTask" Visible=Comm.Status.IsRunning.Value />
+    <RadzenButton Icon="exit_to_app" Text="Close" Click="CloseApplication" Visible=!Comm.Status.IsRunning.Value />
 </RadzenStack>
 
-<EventConsole @ref="_consoleMain" Title="Main log" />
+<RadzenTabs RenderMode="TabRenderMode.Client">
+    <Tabs>
+        <RadzenTabsItem Text="Dashboard">
+            <RadzenStack>
+            <RadzenCard Style="width:300px">
+                <RadzenLabel Text="Number of videos" />
+                <RadzenBadge Text=@_nbVideos.ToString() />
+            </RadzenCard>
+            </RadzenStack>
+        </RadzenTabsItem>
+        <RadzenTabsItem Text="Main log">
+            <EventConsole @ref="_consoleMain" Title="Main log" />
+        </RadzenTabsItem>
+        <RadzenTabsItem Text="FFMPEG log">
+            <EventConsole @ref="_consoleFfmpeg" Title="FFMPEG log" />
+        </RadzenTabsItem>
+    </Tabs>
+</RadzenTabs>
 
-<EventConsole @ref="_consoleFfmpeg" Title="FFMPEG log" /> 
+

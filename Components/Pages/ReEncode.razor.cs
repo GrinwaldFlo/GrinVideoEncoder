@@ -1,5 +1,6 @@
 using GrinVideoEncoder.Models;
 using Microsoft.AspNetCore.Components;
+using Microsoft.EntityFrameworkCore;
 
 namespace GrinVideoEncoder.Components.Pages;
 
@@ -14,17 +15,13 @@ public partial class ReEncode
 	protected override async Task OnInitializedAsync()
 	{
 		await base.OnInitializedAsync();
-		await LoadVideos();
+		await RefreshDb();
 	}
 
-	private async Task LoadVideos()
-	{
-		_videos = await Context.GetVideosWithHighQualityRatioAsync(_threshold);
-	}
 
 	private async Task StartReencoding()
 	{
-		await LoadVideos();
+		await RefreshDb();
 		CommunicationService.VideoProcessToken = new CancellationTokenSource();
 		
 		if (_videos.Count > 0)
@@ -34,5 +31,13 @@ public partial class ReEncode
 				CommunicationService.VideoToProcess.Push(item.Id);
 			}
 		}
+		await InvokeAsync(StateHasChanged);
+	}
+
+	private async Task RefreshDb()
+	{
+		Context.ChangeTracker.Clear();
+		_videos = await Context.GetVideosWithHighQualityRatioAsync(_threshold);
+		await InvokeAsync(StateHasChanged);
 	}
 }

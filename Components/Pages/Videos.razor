@@ -2,9 +2,11 @@
 @using GrinVideoEncoder.Models
 
 <RadzenDataGrid AllowFiltering="true" AllowColumnResize="true" AllowAlternatingRows="true" FilterMode="FilterMode.Simple" 
-AllowSorting="true" AllowVirtualization=true      AllowPaging="false" PagerHorizontalAlign="HorizontalAlign.Left" ShowPagingSummary="true"
+AllowSorting="true" AllowVirtualization=true  AllowPaging="false" PagerHorizontalAlign="HorizontalAlign.Left" ShowPagingSummary="true"
                 Data="@_videos" LogicalFilterOperator="LogicalFilterOperator.Or" SelectionMode="DataGridSelectionMode.Single"
-                Style="height:600px" Density="Density.Compact" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+                Style="height:600px" Density="Density.Compact" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+                TItem="VideoFile"
+                CellContextMenu="OnContextMenu">
     <Columns>
         <RadzenDataGridColumn Property="@nameof(VideoFile.Status)" Title="Status" Frozen="true" Sortable="false" Width="150px" TextAlign="TextAlign.Center">
             <Template Context="data">
@@ -20,5 +22,6 @@ AllowSorting="true" AllowVirtualization=true      AllowPaging="false" PagerHoriz
         <RadzenDataGridColumn Property="@nameof(VideoFile.QualityRatio)" Title="Quality" FormatString="{0:F0}" Width="100px" />
         <RadzenDataGridColumn Property="@nameof(VideoFile.CompressionFactor)" Title="Comp." FormatString="{0:F0}%" Width="100px" />
         <RadzenDataGridColumn Property="@nameof(VideoFile.Fps)" Title="FPS" Width="100px" />
+        <RadzenDataGridColumn Property="@nameof(VideoFile.LastModified)" Title="Modif." Width="150px" />
     </Columns>
 </RadzenDataGrid>

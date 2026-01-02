@@ -1,6 +1,7 @@
 using GrinVideoEncoder.Data;
 using GrinVideoEncoder.Models;
 using GrinVideoEncoder.Services;
+using GrinVideoEncoder.Utils;
 using Microsoft.EntityFrameworkCore;
 
 namespace GrinVideoEncoder.Services;
@@ -24,80 +25,97 @@ public class VideoReencodeService : BackgroundService
 	{
 		if (_communication.VideoProcessToken.Token.IsCancellationRequested)
 			return;
-		// Step 1: Copy video to temp folder
-		string tempDir = Path.GetFullPath(Path.Combine(_settings.ProcessingPath, Guid.NewGuid().ToString()));
-		Directory.CreateDirectory(tempDir);
-		string tempInputPath = Path.Combine(tempDir, video.Filename);
-		File.Copy(video.FullPath, tempInputPath, true);
-
-		// Step 2: Re-encode video in temp folder
-		string tempOutputPath = Path.Combine(tempDir, "compressed_" + video.Filename);
-		tempOutputPath = Path.ChangeExtension(tempOutputPath, MP4_EXT);
-
-		bool success = false;
+		
+		// Prevent system from sleeping during encoding
+		PowerManagement.PreventSleep();
+		
 		try
 		{
-			await _videoProcessor.EncodeVideo(tempInputPath, tempOutputPath, _communication.VideoProcessToken.Token);
-			success = true;
-		}
-		catch (TaskCanceledException)
-		{
-			_log.Warning("Encoding canceled", video);
-			return;
-		}
-		catch (Exception ex)
-		{
-			_log.Error("Encoding failed", ex, video);
-		}
+			// Step 1: Copy video to temp folder
+			string tempDir = Path.GetFullPath(Path.Combine(_settings.ProcessingPath, Guid.NewGuid().ToString()));
+			Directory.CreateDirectory(tempDir);
+			_communication.Status.Status.OnNext("Copying...");
+			string tempInputPath = Path.Combine(tempDir, video.Filename);
+			File.Copy(video.FullPath, tempInputPath, true);
 
-		// Step 3: Check DurationSeconds and TotalPixels
-		var originalInfo = await VideoProcessorService.GetMediaInfo(tempInputPath);
-		var compressedInfo = await VideoProcessorService.GetMediaInfo(tempOutputPath);
-		long? originalDuration = (long?)originalInfo?.Duration.TotalSeconds;
-		long? compressedDuration = (long?)compressedInfo?.Duration.TotalSeconds;
-		long? originalPixels = video.TotalPixels;
-		long? compressedPixels = compressedInfo?.VideoStreams.FirstOrDefault()?.Width * compressedInfo?.VideoStreams.FirstOrDefault()?.Height;
-		double? originalFps = originalInfo?.VideoStreams.FirstOrDefault()?.Framerate;
-		double? compressedFps = compressedInfo?.VideoStreams.FirstOrDefault()?.Framerate;
-
-		if (success && originalDuration != null && originalDuration == compressedDuration &&
-			originalPixels != null && originalPixels == compressedPixels &&
-			originalFps != null && compressedFps != null && Math.Abs(originalFps.Value - compressedFps.Value) < 0.1
-			)
-		{
-			if (new FileInfo(tempInputPath).Length < new FileInfo(tempOutputPath).Length)
+			// Step 2: Re-encode video in temp folder
+			string tempOutputPath = Path.Combine(tempDir, "compressed_" + video.Filename);
+			tempOutputPath = Path.ChangeExtension(tempOutputPath, MP4_EXT);
+			_communication.Status.Status.OnNext("Encoding...");
+			bool success = false;
+			try
 			{
-				video.Status = CompressionStatus.Bigger;
-				_log.Warning("New video is bigger than original {Video} {OriginalSize:F0} [MB] <  {NewSize:F0} [MB]", video.FullPath, new FileInfo(tempInputPath).Length / (1024*1024.0), new FileInfo(tempOutputPath).Length / (1024 * 1024.0));
+				await _videoProcessor.EncodeVideo(tempInputPath, tempOutputPath, _communication.VideoProcessToken.Token);
+				success = true;
+			}
+			catch (TaskCanceledException)
+			{
+				_log.Warning("Encoding canceled", video);
+				return;
+			}
+			catch (Exception ex)
+			{
+				_communication.Status.Status.OnNext("Error");
+				_log.Error("Encoding failed", ex, video);
+			}
+
+			// Step 3: Check DurationSeconds and TotalPixels
+			var originalInfo = await VideoProcessorService.GetMediaInfo(tempInputPath);
+			var compressedInfo = await VideoProcessorService.GetMediaInfo(tempOutputPath);
+			long? originalDuration = (long?)originalInfo?.Duration.TotalSeconds;
+			long? compressedDuration = (long?)compressedInfo?.Duration.TotalSeconds;
+			long? originalPixels = video.TotalPixels;
+			long? compressedPixels = compressedInfo?.VideoStreams.FirstOrDefault()?.Width * compressedInfo?.VideoStreams.FirstOrDefault()?.Height;
+			double? originalFps = originalInfo?.VideoStreams.FirstOrDefault()?.Framerate;
+			double? compressedFps = compressedInfo?.VideoStreams.FirstOrDefault()?.Framerate;
+
+			if (success && originalDuration != null && originalDuration == compressedDuration &&
+				originalPixels != null && originalPixels == compressedPixels &&
+				originalFps != null && compressedFps != null && Math.Abs(originalFps.Value - compressedFps.Value) < 0.1
+				)
+			{
+				if (new FileInfo(tempInputPath).Length < new FileInfo(tempOutputPath).Length)
+				{
+					video.Status = CompressionStatus.Bigger;
+					_log.Warning("New video is bigger than original {Video} {OriginalSize:F0} [MB] <  {NewSize:F0} [MB]", video.FullPath, new FileInfo(tempInputPath).Length / (1024*1024.0), new FileInfo(tempOutputPath).Length / (1024 * 1024.0));
+				}
+				else
+				{
+					string indexerPath = Path.GetFullPath(_settings.IndexerPath);
+					string videoDirpath = Path.GetFullPath(video.DirectoryPath);
+					string relativePath = videoDirpath[indexerPath.Length..].TrimStart(Path.DirectorySeparatorChar);
+
+					// Step 4: Move original to trash (keep directory structure)
+					string trashDir = Path.GetFullPath(Path.Combine(_settings.TrashPath, relativePath));
+					Directory.CreateDirectory(trashDir);
+					string trashPath = Path.Combine(trashDir, video.Filename);
+					_communication.Status.Status.OnNext("Encode success, moving files...");
+					File.Move(tempInputPath, trashPath, true);
+					File.Delete(video.FullPath);
+					video.Filename = Path.ChangeExtension(video.Filename, MP4_EXT);
+					// Step 5: Move new file to original location
+					File.Move(tempOutputPath, video.FullPath, true);
+
+					// Step 6: Update indexation data
+					video.FileSizeCompressed = new FileInfo(video.FullPath).Length;
+					video.Status = CompressionStatus.Compressed;
+					video.LastModified = DateTime.Now;
+					_log.Information("New video successfully encoded {Video}, reduced of {CompressionFactor:F1}%", video.FullPath, video.CompressionFactor);
+					_communication.Status.Status.OnNext("Done");
+				}
 			}
 			else
 			{
-				string indexerPath = Path.GetFullPath(_settings.IndexerPath);
-				string videoDirpath = Path.GetFullPath(video.DirectoryPath);
-				string relativePath = videoDirpath[indexerPath.Length..].TrimStart(Path.DirectorySeparatorChar);
-
-				// Step 4: Move original to trash (keep directory structure)
-				string trashDir = Path.GetFullPath(Path.Combine(_settings.TrashPath, relativePath));
-				Directory.CreateDirectory(trashDir);
-				string trashPath = Path.Combine(trashDir, video.Filename);
-				File.Move(tempInputPath, trashPath, true);
-				File.Delete(video.FullPath);
-				video.Filename = Path.ChangeExtension(video.Filename, MP4_EXT);
-				// Step 5: Move new file to original location
-				File.Move(tempOutputPath, video.FullPath, true);
-
-				// Step 6: Update indexation data
-				video.FileSizeCompressed = new FileInfo(video.FullPath).Length;
-				video.Status = CompressionStatus.Compressed;
-				_log.Information("New video successfully encoded {Video}, reduced of {CompressionFactor:F1}%", video.FullPath, video.CompressionFactor);
+				video.Status = CompressionStatus.FailedToCompress;
 			}
-		}
-		else
-		{
-			video.Status = CompressionStatus.FailedToCompress;
-		}
 
-		Directory.Delete(tempDir, true);
+			Directory.Delete(tempDir, true);
+		}
+		finally
+		{
+			// Allow system to sleep again after encoding completes
+			PowerManagement.AllowSleep();
+		}
 	}
 
 	protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -134,6 +152,7 @@ public class VideoReencodeService : BackgroundService
 				if (_communication.VideoProcessToken.IsCancellationRequested)
 				{
 					_communication.VideoToProcess.Clear();
+					_communication.Status.Status.OnNext("Task canceled");
 					_log.Information("Encoding canceled");
 				}
 			}

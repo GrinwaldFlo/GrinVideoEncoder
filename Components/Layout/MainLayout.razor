@@ -19,11 +19,14 @@
     </RadzenBody>
     <RadzenFooter>
         <RadzenStack Orientation="Orientation.Horizontal">
-            <div style="width:200px">
-                <RadzenBadge BadgeStyle="BadgeStyle.Base" Text=@Comm.Status.Status.Value />
-                <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Secondary" Value="100" ShowValue="false"
+            <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Secondary" Value="100" ShowValue="false"
                                        Mode="ProgressBarMode.Indeterminate" AriaLabel="Processing" Visible=@Comm.Status.IsRunning.Value />
-            </div>
+            <RadzenBadge BadgeStyle="BadgeStyle.Primary" Text=@Comm.Status.Status.Value Style="align-content: center;" />
+
+            @if (Comm.VideoToProcess.Count > 0)
+            {
+                <RadzenBadge BadgeStyle="BadgeStyle.Info" Text=@($"{Comm.VideoToProcess.Count} videos to process") Style="align-content: center;" />
+            }
             <RadzenStack Orientation="Orientation.Vertical" Gap="0.1rem">
                 <RadzenText Text=@($"Last file: {Comm.Status.Filename.Value}") Style="font-size:70%;" />
                 <RadzenText Text=@($"Log: {LogMain.LastLine.Value}") Style="font-size:70%;" />

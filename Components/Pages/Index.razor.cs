@@ -1,5 +1,6 @@
 using System.Reactive.Disposables;
 using Microsoft.AspNetCore.Components;
+using Microsoft.EntityFrameworkCore;
 
 namespace GrinVideoEncoder.Components.Pages;
 
@@ -13,8 +14,13 @@ public partial class Index : IDisposable
 
 	[Inject] private LogMain LogMain { get; set; } = null!;
 	[Inject] private LogFfmpeg LogFfmpeg { get; set; } = null!;
+	[Inject] private VideoIndexerDbContext Context { get; set; } = null!;
 
 	private readonly CompositeDisposable _disposables = [];
+
+	private int _nbVideos = 0;
+	private long _sumByteOriginal = 0;
+	private long _sumByteCompressed = 0;
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
@@ -27,7 +33,20 @@ public partial class Index : IDisposable
 
 			_disposables.Add(LogMain.LastLine.Subscribe(async newLine => await _consoleMain!.LogAsync(newLine)));
 			_disposables.Add(LogFfmpeg.LastLine.Subscribe(async newLine => await _consoleFfmpeg!.LogAsync(newLine)));
+
+			await RefreshDb();
 		}
+	}
+
+	private async Task RefreshDb()
+	{
+		Context.ChangeTracker.Clear();
+
+		_nbVideos = await Context.VideoFiles.CountAsync();
+		_sumByteOriginal = await Context.VideoFiles.SumAsync(x => x.FileSizeOriginal);
+		_sumByteCompressed = await Context.VideoFiles.SumAsync(x => x.FileSizeCompressed ??  x.FileSizeOriginal);
+
+		await InvokeAsync(StateHasChanged);
 	}
 
 	private static async Task FillConsole(GrinLogBase v, EventConsole? console)

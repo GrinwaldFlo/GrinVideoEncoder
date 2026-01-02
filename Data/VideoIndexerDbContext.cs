@@ -38,6 +38,7 @@ public class VideoIndexerDbContext(string dbPath) : DbContext
 	{
 		return await VideoFiles
 			.Where(v => v.Status == CompressionStatus.Original)
+			.AsNoTracking()
 			.AsAsyncEnumerable()
 			.Where(v => v.QualityRatioOriginal.HasValue && v.QualityRatioOriginal > threshold)
 			.ToListAsync();

@@ -37,12 +37,46 @@ public class VideoIndexerService : BackgroundService
 		}
 
 		await InitializeDatabase();
+		await CleanIgnored(stoppingToken);
 		await IndexExistingFiles(stoppingToken);
 
 		while (!stoppingToken.IsCancellationRequested)
 		{
 			await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
 		}
+	}
+
+	private async Task CleanIgnored(CancellationToken stoppingToken)
+	{
+		if (_settings.IgnoreFolders is null || _settings.IgnoreFolders.Count == 0)
+			return;
+
+		await using var context = new VideoIndexerDbContext(_dbPath);
+
+		// Create a copy to avoid modification issues during iteration
+		var ignoreFolders = _settings.IgnoreFolders.ToList();
+		int totalRemoved = 0;
+
+		foreach (string? folder in ignoreFolders)
+		{
+			if (string.IsNullOrEmpty(folder) || folder.Length < 3)
+			{
+				_log.Warning("Ignore directory {Folder} is not valide", folder);
+				continue;
+			}
+
+			string containsPattern = $"{Path.DirectorySeparatorChar}{folder}{Path.DirectorySeparatorChar}";
+			string endsWithPattern = $"{Path.DirectorySeparatorChar}{folder}";
+
+			int fileRemoved = await context.VideoFiles
+				.Where(v => v.DirectoryPath.Contains(containsPattern) || v.DirectoryPath.EndsWith(endsWithPattern))
+				.ExecuteDeleteAsync(stoppingToken);
+			totalRemoved += fileRemoved;
+			if(fileRemoved > 0)
+				_log.Information("{Count} files removed from database because it containts ignore directory {Directory}", fileRemoved, folder);
+		}
+		if(totalRemoved > 0)
+			_log.Information("{Count} files removed from database because it is ignored in directory list", totalRemoved);
 	}
 
 	private async Task InitializeDatabase()

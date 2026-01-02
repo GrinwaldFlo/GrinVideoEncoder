@@ -49,7 +49,7 @@ public partial class VideoFile
 	/// <summary>
 	/// Format FileSizeCompressed as human-readable string (e.g., "45.67 MB")
 	/// </summary>
-	public string FileSizeCompressedFormatted => FormatBytes(FileSizeCompressed ?? 0);
+	public string FileSizeCompressedFormatted => FormatBytes(FileSizeCompressed);
 
 	public string DurationFormatted => FormatDuration(DurationSeconds);
 
@@ -58,10 +58,12 @@ public partial class VideoFile
 	/// <summary>
 	/// Formats bytes to human-readable format (B, KB, MB, GB, TB)
 	/// </summary>
-	private static string FormatBytes(long bytes)
+	private static string FormatBytes(long? bytes)
 	{
+		if (bytes == null)
+			return "-";
 		string[] sizes = { "B", "KB", "MB", "GB", "TB" };
-		double len = bytes;
+		double len = bytes.Value;
 		int order = 0;
 
 		while (len >= 1024 && order < sizes.Length - 1)
