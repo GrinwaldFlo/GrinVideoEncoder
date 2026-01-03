@@ -21,7 +21,8 @@ public partial class Videos : IDisposable
 	{
 		CopyDir,
 		OpenDir,
-		ResetError
+		ResetError,
+		Play
 	}
 
 	[Inject] private CommunicationService Comm { get; set; } = null!;
@@ -60,6 +61,20 @@ public partial class Videos : IDisposable
 	{
 		switch (action)
 		{
+			case CMenuAction.Play:
+				try
+				{
+					Process.Start(new ProcessStartInfo
+					{
+						FileName = video.FullPath,
+						UseShellExecute = true
+					});
+				}
+				catch (Exception ex)
+				{
+					Notification.Notify(NotificationSeverity.Error, ex.Message);
+				}
+				break;
 			case CMenuAction.CopyDir:
 				try
 				{
@@ -92,8 +107,8 @@ public partial class Videos : IDisposable
 				break;
 
 			case CMenuAction.ResetError:
-				await VideoDbContext.ResetError(video.Id);
-				await InvokeAsync(StateHasChanged);
+				await VideoDbContext.ResetErrorAsync(video.Id);
+				await RefreshDb();
 
 				break;
 
@@ -108,9 +123,11 @@ public partial class Videos : IDisposable
 
 		ContextMenu.Open(args,
 		   [
-				new ContextMenuItem(){ Text = "Copy dir", Value = CMenuAction.CopyDir, Icon = "edit" },
-				new ContextMenuItem(){ Text = "Open dir", Value = CMenuAction.OpenDir, Icon = "delete" },
-				new ContextMenuItem(){ Text = "Reset error", Value = CMenuAction.ResetError, Icon = "content_copy" , Disabled = curItem.Status != CompressionStatus.FailedToCompress},
+				new ContextMenuItem(){ Text = "Play", Value = CMenuAction.Play, Icon = "play_arrow" },
+				new ContextMenuItem(){ Text = "Copy dir", Value = CMenuAction.CopyDir, Icon = "folder_copy" },
+				new ContextMenuItem(){ Text = "Open dir", Value = CMenuAction.OpenDir, Icon = "folder_open" },
+				new ContextMenuItem(){ Text = "Reset status", Value = CMenuAction.ResetError, Icon = "reset_shutter_speed" , 
+					Disabled = curItem.Status is not CompressionStatus.FailedToCompress and not CompressionStatus.Processing and not CompressionStatus.Bigger},
 		   ],
 		   async (e) => await ContextMenuAction(curItem, (CMenuAction)e.Value));
 	}

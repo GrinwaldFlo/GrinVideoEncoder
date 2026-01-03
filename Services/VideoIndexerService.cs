@@ -81,6 +81,7 @@ public class VideoIndexerService : BackgroundService
 	{
 		await using var context = new VideoDbContext();
 		await context.Database.EnsureCreatedAsync();
+		await VideoDbContext.EnableWalModeAsync();
 		_log.Information("Video indexer database initialized at {DatabasePath}", _dbPath);
 	}
 
@@ -156,7 +157,6 @@ public class VideoIndexerService : BackgroundService
 
 			if (existingFile != null)
 			{
-				_log.Debug("File already indexed: {FilePath}", filePath);
 				return;
 			}
 

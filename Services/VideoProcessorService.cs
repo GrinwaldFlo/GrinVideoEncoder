@@ -5,7 +5,7 @@ using static GrinVideoEncoder.Utils.GpuDetector;
 
 namespace GrinVideoEncoder.Services;
 
-public class VideoProcessorService(IAppSettings settings, LogFfmpeg log)
+public class VideoProcessorService(IAppSettings settings, LogFfmpeg log, CommunicationService comm)
 {
 	public bool ReadyToProcess { get; private set; } = true;
 
@@ -131,8 +131,7 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log)
 		communication.Status.Status.OnNext("Processing");
 		communication.Status.IsRunning.OnNext(true);
 
-		// Prevent system from sleeping during encoding
-		PowerManagement.PreventSleep();
+		comm.PreventSleep = true;
 
 		FileNamer filename = new(settings, filePath);
 		try
@@ -157,8 +156,7 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log)
 		}
 		finally
 		{
-			// Allow system to sleep again after processing completes
-			PowerManagement.AllowSleep();
+			comm.PreventSleep = false;
 			communication.Status.IsRunning.OnNext(false);
 		}
 	}

@@ -27,9 +27,9 @@
                                        Mode="ProgressBarMode.Indeterminate" AriaLabel="Processing" Visible=@Comm.Status.IsRunning.Value />
             <RadzenBadge BadgeStyle="BadgeStyle.Primary" Text=@Comm.Status.Status.Value Style="align-content: center;" />
 
-            @if (Comm.VideoToProcess.Count > 0)
+            @if (_videoToProcessCount > 0)
             {
-                <RadzenBadge BadgeStyle="BadgeStyle.Info" Text=@($"{Comm.VideoToProcess.Count} videos to process") Style="align-content: center;" />
+                <RadzenBadge BadgeStyle="BadgeStyle.Info" Text=@($"{_videoToProcessCount} videos to process") Style="align-content: center;" />
             }
             <RadzenStack Orientation="Orientation.Vertical" Gap="0.1rem">
                 <RadzenText Text=@($"Last file: {Comm.Status.Filename.Value}") Style="font-size:70%;" />

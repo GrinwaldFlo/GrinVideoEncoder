@@ -15,6 +15,8 @@ public partial class MainLayout : IDisposable
 
 	private readonly CompositeDisposable _disposables = [];
 
+	private int _videoToProcessCount = 0;
+
 	protected override async Task OnInitializedAsync()
 	{
 		await base.OnInitializedAsync();
@@ -27,6 +29,7 @@ public partial class MainLayout : IDisposable
 
 	private async Task Refresh()
 	{
+		_videoToProcessCount = await VideoDbContext.CountVideosWithStatusAsync(Models.CompressionStatus.ToProcess);
 		await InvokeAsync(StateHasChanged);
 	}
 

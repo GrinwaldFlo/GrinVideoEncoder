@@ -14,6 +14,7 @@ builder.Services.AddSingleton<LogFfmpeg>();
 
 builder.Services.AddHostedService<MainBackgroundService>();
 builder.Services.AddHostedService<VideoIndexerService>();
+builder.Services.AddHostedService<PreventSleep>();
 builder.Services.AddHostedService<VideoReencodeService>();
 builder.Services.AddTransient<VideoProcessorService>();
 builder.Services.AddSingleton<CommunicationService>();

@@ -34,13 +34,8 @@ public partial class ReEncode : IDisposable
 		await RefreshDb();
 		Comm.VideoProcessToken = new CancellationTokenSource();
 
-		if (_videos.Count > 0)
-		{
-			foreach (var item in _videos)
-			{
-				Comm.VideoToProcess.Push(item.Id);
-			}
-		}
+		int nb = await VideoDbContext.SetStatusAsync(_videos.Select(x => x.Id), CompressionStatus.ToProcess);
+		Comm.AskTreatFiles = nb > 0;
 		await InvokeAsync(StateHasChanged);
 	}
 

@@ -9,14 +9,26 @@
     </RadzenCard>
     <RadzenCard Style="width:300px">
         <RadzenLabel Text="Original size" />
-        <RadzenBadge Text=@($"{Models.VideoFile.FormatBytes(_sumByteOriginal):F0}") />
+        <RadzenBadge Text=@($"{Models.VideoFile.FormatBytes(_sumByteOriginal)}") />
     </RadzenCard>
     <RadzenCard Style="width:300px">
         <RadzenLabel Text="Compressed size" />
-        <RadzenBadge Text=@($"{Models.VideoFile.FormatBytes(_sumByteCompressed):F0}") />
+        <RadzenBadge Text=@($"{Models.VideoFile.FormatBytes(_sumByteCompressed)}") />
     </RadzenCard>
     <RadzenCard Style="width:300px">
         <RadzenLabel Text="To compress size" />
-        <RadzenBadge Text=@($"{Models.VideoFile.FormatBytes(_sumByteToReEncode):F0}") />
+        <RadzenBadge Text=@($"{Models.VideoFile.FormatBytes(_sumByteToReEncode)}") />
+    </RadzenCard>
+    <RadzenCard Style="width:300px">
+        <RadzenLabel Text="Free space work volume" />
+        <RadzenBadge Text=@($"{Models.VideoFile.FormatBytes(_availableSizeWorkingDrive)}") />
+    </RadzenCard>
+    <RadzenCard Style="width:300px">
+        <RadzenLabel Text="Free space indexed volume" />
+        <RadzenBadge Text=@($"{Models.VideoFile.FormatBytes(_availableSizeDataDrive)}") />
+    </RadzenCard>
+    <RadzenCard Style="width:300px">
+        <RadzenLabel Text="Trash size" />
+        <RadzenBadge Text=@($"{Models.VideoFile.FormatBytes(_trashSize)}") />
     </RadzenCard>
 </RadzenStack>

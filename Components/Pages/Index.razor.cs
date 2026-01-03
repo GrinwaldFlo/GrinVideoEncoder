@@ -44,6 +44,7 @@ public partial class Index : IDisposable
 			await FillConsole(LogMain, _consoleMain);
 			await FillConsole(LogFfmpeg, _consoleFfmpeg);
 
+			_disposables.Add(Comm.Status.IsRunning.Subscribe(async _ => await InvokeAsync(StateHasChanged)));
 			_disposables.Add(LogMain.LastLine.Subscribe(async newLine => await _consoleMain!.LogAsync(newLine)));
 			_disposables.Add(LogFfmpeg.LastLine.Subscribe(async newLine => await _consoleFfmpeg!.LogAsync(newLine)));
 		}
