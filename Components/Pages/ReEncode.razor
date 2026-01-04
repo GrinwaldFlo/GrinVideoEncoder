@@ -4,13 +4,13 @@
 <div class="mb-3">
     <RadzenLabel Text="Quality Ratio Threshold" />
     <RadzenNumeric @bind-Value=ReEncode.Threshold TValue="double" Step="10" Style="width: 200px;" Change="RefreshDb" />
-    <RadzenButton Text=@($"Start Re-encoding {_videos.Count} videos") Click="StartReencoding" ButtonStyle="ButtonStyle.Danger" Visible=@(_videos.Count > 0) Disabled="Comm.Status.IsRunning.Value" />
+    <RadzenButton Text=@($"Start Re-encoding {_selectedVideoCount} videos") Click="StartReencoding" ButtonStyle="ButtonStyle.Danger" Visible=@(_videos.Count > 0) Disabled="Comm.Status.IsRunning.Value" />
 </div>
 
-<RadzenDataGrid Style="height:100%; flex: 1;" AllowFiltering="true" AllowColumnResize="true" AllowAlternatingRows="true" FilterMode="FilterMode.Simple"
+<RadzenDataGrid @ref="_grid" TItem=VideoFile Style="height:100%; flex: 1;" AllowFiltering="true" AllowColumnResize="true" AllowAlternatingRows="true" FilterMode="FilterMode.Simple"
                 AllowSorting="true" AllowVirtualization="true" AllowPaging="false"
                 Data="@_videos" LogicalFilterOperator="LogicalFilterOperator.Or" SelectionMode="DataGridSelectionMode.Single"
-                Density="Density.Compact" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive">
+                Density="Density.Compact" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive" Filter=OnGridViewChanged >
     <Columns>
         <RadzenDataGridColumn Property="@nameof(VideoFile.Status)" Title="Status" Frozen="true" Sortable="false" Width="150px" TextAlign="TextAlign.Center">
             <Template Context="data">

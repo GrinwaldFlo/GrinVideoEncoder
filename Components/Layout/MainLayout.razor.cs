@@ -17,19 +17,27 @@ public partial class MainLayout : IDisposable
 
 	private int _videoToProcessCount = 0;
 
+	private double _encodingPercent = 100;
+	private bool _progressShowValue = false;
+	private Radzen.ProgressBarMode _encodingProgressMode = Radzen.ProgressBarMode.Indeterminate;
+
 	protected override async Task OnInitializedAsync()
 	{
 		await base.OnInitializedAsync();
 
 		_disposables.Add(Comm.Status.IsRunning.Subscribe(async _ => await Refresh()));
 		_disposables.Add(Comm.Status.Status.Subscribe(async _ => await Refresh()));
+		_disposables.Add(Comm.Status.EncodingPercent.Subscribe(async _ => await Refresh()));
 		_disposables.Add(LogMain.LastLine.Subscribe(async _ => await Refresh()));
 		_disposables.Add(LogFfmpeg.LastLine.Subscribe(async _ => await Refresh()));
 	}
 
 	private async Task Refresh()
 	{
+		_encodingPercent = Comm.Status.EncodingPercent.Value == null ? 100 : Math.Round(Comm.Status.EncodingPercent.Value.Value);
+		_encodingProgressMode = Comm.Status.EncodingPercent.Value == null ? Radzen.ProgressBarMode.Indeterminate : Radzen.ProgressBarMode.Determinate;
 		_videoToProcessCount = await VideoDbContext.CountVideosWithStatusAsync(Models.CompressionStatus.ToProcess);
+		_progressShowValue = Comm.Status.EncodingPercent.Value != null;
 		await InvokeAsync(StateHasChanged);
 	}
 

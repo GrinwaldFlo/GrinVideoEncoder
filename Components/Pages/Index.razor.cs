@@ -68,5 +68,6 @@ public partial class Index : IDisposable
 	private async Task CancelTask(Microsoft.AspNetCore.Components.Web.MouseEventArgs args)
 	{
 		await Comm.VideoProcessToken.CancelAsync();
+		await InvokeAsync(StateHasChanged);
 	}
 }

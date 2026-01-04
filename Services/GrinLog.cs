@@ -4,7 +4,7 @@ public class LogMain(IAppSettings settings) : GrinLogBase(settings.LogPath, "Gri
 {
 }
 
-public class LogFfmpeg(IAppSettings settings) : GrinLogBase(settings.LogPath, "GrinVideoEncoder")
+public class LogFfmpeg(IAppSettings settings) : GrinLogBase(settings.LogPath, "FFmpeg")
 {
 }
 

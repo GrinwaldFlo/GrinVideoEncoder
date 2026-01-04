@@ -23,8 +23,9 @@
     </RadzenBody>
     <RadzenFooter>
         <RadzenStack Orientation="Orientation.Horizontal">
-            <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Secondary" Value="100" ShowValue="false"
-                                       Mode="ProgressBarMode.Indeterminate" AriaLabel="Processing" Visible=@Comm.Status.IsRunning.Value />
+
+            <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Secondary" Value=@_encodingPercent ShowValue=_progressShowValue Max="100" Min="0"
+                                       Mode=_encodingProgressMode AriaLabel="Processing" Visible=@Comm.Status.IsRunning.Value />
             <RadzenBadge BadgeStyle="BadgeStyle.Primary" Text=@Comm.Status.Status.Value Style="align-content: center;" />
 
             @if (_videoToProcessCount > 0)

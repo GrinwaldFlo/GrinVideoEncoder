@@ -1,12 +1,14 @@
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.Marshalling;
 using Microsoft.AspNetCore.Routing.Constraints;
 
 namespace GrinVideoEncoder.Utils;
 
-public static class VolumeManagent
+public static partial class VolumeManagent
 {
-	[DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-	private static extern bool GetDiskFreeSpaceEx(
+	[LibraryImport("kernel32.dll", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+	[return: MarshalAs(UnmanagedType.Bool)]
+	private static partial bool GetDiskFreeSpaceExW(
 		string lpDirectoryName,
 		out ulong lpFreeBytesAvailable,
 		out ulong lpTotalNumberOfBytes,
@@ -22,7 +24,7 @@ public static class VolumeManagent
 			return new DriveInfo(root).AvailableFreeSpace;
 		}
 
-		if (GetDiskFreeSpaceEx(fullPath, out ulong freeBytes, out _, out _))
+		if (GetDiskFreeSpaceExW(fullPath, out ulong freeBytes, out _, out _))
 		{
 			return (long)freeBytes;
 		}

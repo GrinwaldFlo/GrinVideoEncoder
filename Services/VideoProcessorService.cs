@@ -1,3 +1,4 @@
+using System.Management;
 using GrinVideoEncoder.Utils;
 using Xabe.FFmpeg;
 using Xabe.FFmpeg.Downloader;
@@ -58,14 +59,12 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log, Communi
 	{
 		var gpuType = GpuDetector.DetectGpuVendor();
 		var mediaInfo = await FFmpeg.GetMediaInfo(inputFilename, token);
-		var videoStream = mediaInfo.VideoStreams.FirstOrDefault()
-			?? throw new Exception("No video stream found");
 
 		if (!settings.ForceCpu && gpuType is GpuDetector.GpuVendor.Nvidia or GpuDetector.GpuVendor.AMD)
 		{
 			try
 			{
-				await ProcessWithGpu(videoStream, mediaInfo.AudioStreams, mediaInfo.SubtitleStreams, outputFilename, gpuType, token);
+				await ProcessWithGpu(mediaInfo, outputFilename, gpuType, token);
 			}
 			catch (Exception ex) when (ex.Message.Contains("encoder") || ex.Message.Contains("GPU"))
 			{
@@ -208,9 +207,16 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log, Communi
 		log.Information("Started processing {ProcessingPath}", file.ProcessingPath);
 	}
 
-	private async Task ProcessWithGpu(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, IEnumerable<ISubtitleStream> subtitleStreams, string outputPath,
+	private async Task ProcessWithGpu(IMediaInfo? mediaInfo, string outputPath,
 				GpuVendor gpuType, CancellationToken token)
 	{
+		if (mediaInfo == null)
+			throw new Exception("Failed to get media info");
+		var videoStream = mediaInfo.VideoStreams.FirstOrDefault() ?? throw new Exception("No video stream found");
+		var audioStreams = mediaInfo.AudioStreams;
+		var subtitleStreams = mediaInfo.SubtitleStreams;
+
+
 		if (!outputPath.EndsWith(".mp4"))
 			throw new Exception("Please provide an mp4 file");
 
@@ -265,7 +271,40 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log, Communi
 
 		conversion.SetOutput(outputPath);
 
-		conversion.OnDataReceived += (sender, args) => log.Information("FFmpeg [{GpuType} GPU]: {Data}", gpuType, args.Data);
+		conversion.OnDataReceived += (sender, args) => OnNewDataReceivd(gpuType, mediaInfo.Duration, args.Data);
 		await conversion.Start(token);
 	}
+
+	private void OnNewDataReceivd(GpuVendor gpuType, TimeSpan totalTime, string? data)
+	{
+		var curTimespan = ParseFfmpegToTimeSpan(data);
+		if (curTimespan == null)
+		{
+			comm.Status.EncodingPercent.OnNext(null);
+		}
+		else
+		{
+			comm.Status.EncodingPercent.OnNext(curTimespan.Value.TotalSeconds / totalTime.TotalSeconds * 100);
+		}
+		log.Information("FFmpeg [{GpuType} GPU]: {Data}", gpuType, data);
+	}
+
+	private static TimeSpan? ParseFfmpegToTimeSpan(string? log)
+	{
+		if (string.IsNullOrEmpty(log))
+			return null;
+
+		var timeMatch = System.Text.RegularExpressions.Regex.Match(log, @"time=(\d{2}):(\d{2}):(\d{2}\.\d{2})");
+		if (timeMatch.Success &&
+			int.TryParse(timeMatch.Groups[1].Value, out int hours) &&
+			int.TryParse(timeMatch.Groups[2].Value, out int minutes) &&
+			double.TryParse(timeMatch.Groups[3].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double seconds))
+		{
+			int wholeSeconds = (int)seconds;
+			int milliseconds = (int)((seconds - wholeSeconds) * 1000);
+			return new TimeSpan(0, hours, minutes, wholeSeconds, milliseconds);
+		}
+		return null;
+	}
+
 }
