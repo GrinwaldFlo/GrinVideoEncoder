@@ -1,190 +1,163 @@
-﻿using Xabe.FFmpeg;
+using System.Management;
+using GrinVideoEncoder.Utils;
+using Xabe.FFmpeg;
 using Xabe.FFmpeg.Downloader;
 using static GrinVideoEncoder.Utils.GpuDetector;
 
 namespace GrinVideoEncoder.Services;
 
-public class VideoProcessorService(IAppSettings settings)
+public class VideoProcessorService(IAppSettings settings, LogFfmpeg log, CommunicationService comm)
 {
 	public bool ReadyToProcess { get; private set; } = true;
+
+	/// <summary>
+	/// Gets the full media information for a video file using FFprobe.
+	/// </summary>
+	/// <param name="filePath">Path to the video file.</param>
+	/// <param name="token">Cancellation token.</param>
+	/// <returns>The media information including duration, streams, and dimensions.</returns>
+	public static async Task<IMediaInfo?> GetMediaInfo(string filePath, CancellationToken token = default)
+	{
+		try
+		{
+			return await FFmpeg.GetMediaInfo(filePath, token);
+		}
+		catch
+		{
+			return null;
+		}
+	}
+
+	/// <summary>
+	/// Gets the duration of a video file using FFprobe.
+	/// </summary>
+	/// <param name="filePath">Path to the video file.</param>
+	/// <param name="token">Cancellation token.</param>
+	/// <returns>The duration of the video.</returns>
+	public static async Task<TimeSpan?> GetVideoDuration(string filePath, CancellationToken token = default)
+	{
+		var mediaInfo = await GetMediaInfo(filePath, token);
+		return mediaInfo?.Duration;
+	}
+
+	public static bool IsFileAvailable(string filePath)
+	{
+		try
+		{
+			using var stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.None);
+			if (stream.Length > 0)
+				return true;
+		}
+		catch
+		{
+			// Do nothing
+		}
+		return false;
+	}
+
+	public async Task EncodeVideo(string inputFilename, string outputFilename, CancellationToken token = default)
+	{
+		var gpuType = GpuDetector.DetectGpuVendor();
+		var mediaInfo = await FFmpeg.GetMediaInfo(inputFilename, token);
+
+		if (!settings.ForceCpu && gpuType is GpuDetector.GpuVendor.Nvidia or GpuDetector.GpuVendor.AMD)
+		{
+			try
+			{
+				await ProcessWithGpu(mediaInfo, outputFilename, gpuType, token);
+			}
+			catch (Exception ex) when (ex.Message.Contains("encoder") || ex.Message.Contains("GPU"))
+			{
+				log.Warning("{GpuType} GPU encoding failed. Falling back to CPU encoding. Error: {ErrorMessage}", gpuType, ex.Message);
+				throw new Exception("No GPU found");
+			}
+		}
+		else
+		{
+			throw new Exception("No GPU found");
+		}
+	}
+
+	/// <summary>
+	/// Downloads FFmpeg if not exists
+	/// </summary>
+	/// <returns></returns>
+	public async Task FfmpegDownload()
+	{
+		string ffmpegPath = Path.Combine(settings.TempPath, "ffmpeg");
+		if (!Directory.Exists(ffmpegPath))
+		{
+			Directory.CreateDirectory(ffmpegPath);
+		}
+		FFmpeg.SetExecutablesPath(ffmpegPath);
+		await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official, ffmpegPath);
+
+		string exePath = Path.Combine(ffmpegPath, "ffmpeg.exe");
+
+		try
+		{
+			using var process = new System.Diagnostics.Process();
+			process.StartInfo.FileName = exePath;
+			process.StartInfo.Arguments = "-version";
+			process.StartInfo.UseShellExecute = false;
+			process.StartInfo.RedirectStandardOutput = true;
+			process.StartInfo.CreateNoWindow = true;
+			process.Start();
+			string output = await process.StandardOutput.ReadToEndAsync();
+			await process.WaitForExitAsync();
+
+			if (process.ExitCode != 0)
+			{
+				throw new Exception($"FFmpeg exited with code {process.ExitCode}");
+			}
+
+			log.Information("FFmpeg version: {Version}", output.Split('\n').FirstOrDefault()?.Trim());
+		}
+		catch (Exception ex)
+		{
+			log.Fatal(ex, "FFmpeg is not working properly. Application will close.");
+			Environment.Exit(1);
+		}
+	}
 
 	public async Task ProcessVideo(string filePath, CommunicationService communication)
 	{
 		var token = communication.VideoProcessToken.Token;
-		communication.Status.Filename = filePath;
+		communication.Status.Filename.OnNext(filePath);
 		if (!ReadyToProcess)
 			return;
 
-		communication.Status.Status = "Processing";
-		communication.Status.IsRunning = true;
-		await FfmpegDownload();
+		communication.Status.Status.OnNext("Processing");
+		communication.Status.IsRunning.OnNext(true);
 
-		var gpuType = GpuDetector.DetectGpuVendor();
+		comm.PreventSleep = true;
+
 		FileNamer filename = new(settings, filePath);
 		try
 		{
 			await PrepareProcessing(filename);
 
-			var mediaInfo = await FFmpeg.GetMediaInfo(filename.ProcessingPath, token);
-			var videoStream = mediaInfo.VideoStreams.FirstOrDefault()
-				?? throw new Exception("No video stream found");
-
-			if (!settings.ForceCpu && gpuType is GpuDetector.GpuVendor.Nvidia or GpuDetector.GpuVendor.AMD)
-			{
-				try
-				{
-					await ProcessWithGpu(videoStream, mediaInfo.AudioStreams, filename.TempPath, gpuType, token);
-				}
-				catch (Exception ex) when (ex.Message.Contains("encoder") || ex.Message.Contains("GPU"))
-				{
-					Log.Warning("{GpuType} GPU encoding failed. Falling back to CPU encoding. Error: {ErrorMessage}", gpuType, ex.Message);
-					videoStream = mediaInfo.VideoStreams.First();
-					await ProcessWithCpu(videoStream, mediaInfo.AudioStreams, filename, token);
-				}
-			}
-			else
-			{
-				await ProcessWithCpu(videoStream, mediaInfo.AudioStreams, filename, token);
-			}
+			await EncodeVideo(filename.ProcessingPath, filename.TempPath, token);
 
 			FinalizeProcessing(filename);
-			communication.Status.Status = "Done";
+			communication.Status.Status.OnNext("Done");
 		}
 		catch (OperationCanceledException)
 		{
 			HandleProcessingError(filename);
-			communication.Status.Status = $"Cancelled";
-			Log.Warning("Encoding cancelled {InputPath}", filename.InputPath);
+			communication.Status.Status.OnNext($"Cancelled");
+			log.Warning("Encoding cancelled {InputPath}", filename.InputPath);
 		}
 		catch (Exception ex)
 		{
 			HandleProcessingError(filename, ex);
-			communication.Status.Status = $"Failed";
+			communication.Status.Status.OnNext($"Failed");
 		}
 		finally
 		{
-			communication.Status.IsRunning = false;
+			comm.PreventSleep = false;
+			communication.Status.IsRunning.OnNext(false);
 		}
-	}
-
-	private static void FinalizeProcessing(FileNamer filename)
-	{
-		File.Move(filename.TempPath, filename.OutputPath);
-		File.Move(filename.ProcessingPath, filename.TrashPath);
-		Log.Information("Successfully processed {FinalPath}", filename.OutputPath);
-	}
-
-	private static void HandleProcessingError(FileNamer file, Exception? ex = null)
-	{
-		if (ex != null)
-			Log.Error(ex, "Processing error");
-		if (File.Exists(file.TempPath))
-			File.Delete(file.TempPath);
-		if (File.Exists(file.TempFirstPassPath))
-			File.Delete(file.TempFirstPassPath);
-		if (File.Exists(file.ProcessingPath))
-		{
-			File.Move(file.ProcessingPath, file.FailedPath, true);
-		}
-	}
-
-	private static async Task PrepareProcessing(FileNamer file)
-	{
-		Log.Information("Waiting {FilePath} is ready", file.InputPath);
-		await WaitForFile(file.InputPath, CancellationToken.None);
-
-		File.Move(file.InputPath, file.ProcessingPath);
-		Log.Information("Started processing {ProcessingPath}", file.ProcessingPath);
-	}
-
-	private async Task ProcessWithCpu(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, FileNamer file, CancellationToken token)
-	{
-		videoStream.SetCodec(VideoCodec.hevc)
-				  .SetBitrate(settings.BitrateKbS * 1000);
-
-		await RunFirstPass(videoStream, file, token);
-		await RunSecondPass(videoStream, audioStreams, file, token);
-	}
-
-	private async Task ProcessWithGpu(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, string outputPath,
-				GpuVendor gpuType, CancellationToken token)
-	{
-		videoStream.SetBitrate(settings.BitrateKbS * 1000);
-
-		var conversion = FFmpeg.Conversions.New()
-			.AddStream(videoStream);
-
-		// Add GPU-specific parameters
-		switch (gpuType)
-		{
-			case GpuVendor.Nvidia:
-				conversion
-					.AddParameter("-c:v hevc_nvenc")
-					.AddParameter("-preset p7")
-					.AddParameter("-rc-lookahead 32")
-					.AddParameter("-spatial-aq 1")
-					.AddParameter("-temporal-aq 1")
-					.AddParameter("-gpu 0")
-					.AddParameter($"-b:v {settings.BitrateKbS}k");
-				break;
-
-			case GpuVendor.AMD:
-				conversion
-					.AddParameter("-c:v hevc_amf")
-					.AddParameter("-quality quality")
-					.AddParameter("-rc cqp")
-					.AddParameter("-qp_i 18")
-					.AddParameter("-qp_p 20")
-					.AddParameter("-qp_b 24")
-					.AddParameter($"-b:v {settings.BitrateKbS}k");
-				break;
-
-			default:
-				throw new ArgumentException("Unsupported GPU type");
-		}
-
-		conversion.SetOutput(outputPath);
-
-		foreach (var audioStream in audioStreams)
-		{
-			conversion.AddStream(audioStream);
-		}
-
-		conversion.OnDataReceived += (sender, args) => Log.Information("FFmpeg [{GpuType} GPU]: {Data}", gpuType, args.Data);
-		await conversion.Start(token);
-	}
-
-	private static async Task RunFirstPass(IVideoStream videoStream, FileNamer file, CancellationToken token)
-	{
-		var conversion = FFmpeg.Conversions.New()
-			.AddStream(videoStream)
-			.AddParameter($"-pass 1")
-			.AddParameter($"-passlogfile \"{file.StatFileName}\"")
-			.AddParameter("-an")
-			.SetOutput(file.TempFirstPassPath);
-
-		conversion.OnDataReceived += (sender, args) => Log.Information("FFmpeg [Pass1]: {Data}", args.Data);
-		await conversion.Start(token);
-
-		if (File.Exists(file.TempFirstPassPath))
-			File.Delete(file.TempFirstPassPath);
-	}
-
-	private static async Task RunSecondPass(IVideoStream videoStream, IEnumerable<IAudioStream> audioStreams, FileNamer file, CancellationToken token)
-	{
-		var conversion = FFmpeg.Conversions.New()
-			.AddStream(videoStream)
-			.AddParameter($"-pass 2")
-			.AddParameter($"-passlogfile \"{file.StatFileName}\"")
-			.SetOutput(file.TempPath);
-
-		foreach (var audioStream in audioStreams)
-		{
-			conversion.AddStream(audioStream);
-		}
-
-		conversion.OnDataReceived += (sender, args) => Log.Information("FFmpeg [Pass2]: {Data}", args.Data);
-		await conversion.Start(token);
 	}
 
 	/// <summary>
@@ -197,37 +170,141 @@ public class VideoProcessorService(IAppSettings settings)
 	{
 		while (!token.IsCancellationRequested)
 		{
-			try
-			{
-				using var stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.None);
-				if (stream.Length > 0)
-					return;
-			}
-			catch
-			{
-				// Do nothing
-			}
+			if (IsFileAvailable(filePath))
+				return;
 
 			await Task.Delay(5000, token);
 		}
 	}
 
-	/// <summary>
-	/// Downloads FFmpeg if not exists
-	/// </summary>
-	/// <returns></returns>
-	private async Task FfmpegDownload()
+	private void FinalizeProcessing(FileNamer filename)
 	{
-		string ffmpegPath = Path.Combine(settings.TempPath, "ffmpeg");
-		if (!Directory.Exists(ffmpegPath))
-		{
-			Directory.CreateDirectory(ffmpegPath);
-		}
-		FFmpeg.SetExecutablesPath(ffmpegPath);
+		File.Move(filename.TempPath, filename.OutputPath);
+		File.Move(filename.ProcessingPath, filename.TrashPath);
+		log.Information("Successfully processed {FinalPath}", filename.OutputPath);
+	}
 
-		if (!File.Exists(Path.Combine(ffmpegPath, "ffmpeg.exe")))
+	private void HandleProcessingError(FileNamer file, Exception? ex = null)
+	{
+		if (ex != null)
+			log.Error(ex, "Processing error");
+		if (File.Exists(file.TempPath))
+			File.Delete(file.TempPath);
+		if (File.Exists(file.TempFirstPassPath))
+			File.Delete(file.TempFirstPassPath);
+		if (File.Exists(file.ProcessingPath))
 		{
-			await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official, ffmpegPath);
+			File.Move(file.ProcessingPath, file.FailedPath, true);
 		}
 	}
+
+	private async Task PrepareProcessing(FileNamer file)
+	{
+		log.Information("Waiting {FilePath} is ready", file.InputPath);
+		await WaitForFile(file.InputPath, CancellationToken.None);
+
+		File.Move(file.InputPath, file.ProcessingPath);
+		log.Information("Started processing {ProcessingPath}", file.ProcessingPath);
+	}
+
+	private async Task ProcessWithGpu(IMediaInfo? mediaInfo, string outputPath,
+				GpuVendor gpuType, CancellationToken token)
+	{
+		if (mediaInfo == null)
+			throw new Exception("Failed to get media info");
+		var videoStream = mediaInfo.VideoStreams.FirstOrDefault() ?? throw new Exception("No video stream found");
+		var audioStreams = mediaInfo.AudioStreams;
+		var subtitleStreams = mediaInfo.SubtitleStreams;
+
+
+		if (!outputPath.EndsWith(".mp4"))
+			throw new Exception("Please provide an mp4 file");
+
+		var conversion = FFmpeg.Conversions.New()
+			.AddStream(videoStream);
+
+		// Add GPU-specific parameters for constant quality encoding
+		switch (gpuType)
+		{
+			case GpuVendor.Nvidia:
+				conversion
+					.AddParameter("-c:v hevc_nvenc")
+					.AddParameter("-preset p7")
+					.AddParameter("-rc vbr")
+					.AddParameter($"-cq {settings.QualityLevel}")
+					.AddParameter("-rc-lookahead 32")
+					.AddParameter("-spatial-aq 1")
+					.AddParameter("-temporal-aq 1")
+					.AddParameter("-gpu 0");
+				break;
+
+			case GpuVendor.AMD:
+				conversion
+					.AddParameter("-c:v hevc_amf")
+					.AddParameter("-rc cqp")
+					.AddParameter($"-qp_i {settings.QualityLevel}")
+					.AddParameter($"-qp_p {settings.QualityLevel}")
+					.AddParameter("-pix_fmt yuv420p")
+					.AddParameter("-tag:v hvc1");
+				break;
+
+			default:
+				throw new ArgumentException("Unsupported GPU type");
+		}
+
+		// Process Audio
+		foreach (var audioStream in audioStreams)
+		{
+			conversion.AddStream(audioStream);
+		}
+
+		// Process Subtitles
+		if (subtitleStreams != null && subtitleStreams.Any())
+		{
+			foreach (var subStream in subtitleStreams)
+			{
+				conversion.AddStream(subStream);
+			}
+			// Force conversion to MP4-compatible subtitle format
+			conversion.AddParameter("-c:s mov_text");
+		}
+
+		conversion.SetOutput(outputPath);
+
+		conversion.OnDataReceived += (sender, args) => OnNewDataReceivd(gpuType, mediaInfo.Duration, args.Data);
+		await conversion.Start(token);
+	}
+
+	private void OnNewDataReceivd(GpuVendor gpuType, TimeSpan totalTime, string? data)
+	{
+		var curTimespan = ParseFfmpegToTimeSpan(data);
+		if (curTimespan == null)
+		{
+			comm.Status.EncodingPercent.OnNext(null);
+		}
+		else
+		{
+			comm.Status.EncodingPercent.OnNext(curTimespan.Value.TotalSeconds / totalTime.TotalSeconds * 100);
+		}
+		log.Information("FFmpeg [{GpuType} GPU]: {Data}", gpuType, data);
+	}
+
+	private static TimeSpan? ParseFfmpegToTimeSpan(string? log)
+	{
+		if (string.IsNullOrEmpty(log))
+			return null;
+
+		var timeMatch = System.Text.RegularExpressions.Regex.Match(log, @"time=(\d{2}):(\d{2}):(\d{2}\.\d{2})");
+		if (timeMatch.Success &&
+			int.TryParse(timeMatch.Groups[1].Value, out int hours) &&
+			int.TryParse(timeMatch.Groups[2].Value, out int minutes) &&
+			double.TryParse(timeMatch.Groups[3].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double seconds))
+		{
+			int wholeSeconds = (int)seconds;
+			int milliseconds = (int)((seconds - wholeSeconds) * 1000);
+			return new TimeSpan(0, hours, minutes, wholeSeconds, milliseconds);
+		}
+		return null;
+	}
+
 }

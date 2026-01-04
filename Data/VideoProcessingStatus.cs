@@ -1,8 +1,9 @@
-﻿namespace GrinVideoEncoder.Data;
+namespace GrinVideoEncoder.Data;
 
 public class VideoProcessingStatus
 {
-	public string Filename { get; set; } = string.Empty;
-	public string Status { get; set; } = string.Empty;
-	public bool IsRunning { get; set; }
+	public BehaviorSubject<string> Filename { get; } = new BehaviorSubject<string>("...");
+	public BehaviorSubject<bool> IsRunning { get; } = new BehaviorSubject<bool>(false);
+	public BehaviorSubject<string> Status { get; } = new BehaviorSubject<string>("...");
+	public BehaviorSubject<double?> EncodingPercent { get; } = new BehaviorSubject<double?>(null);
 }

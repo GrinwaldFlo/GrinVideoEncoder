@@ -1,0 +1,50 @@
+@inherits LayoutComponentBase
+
+<PageTitle>GrinVideoEncoder</PageTitle>
+
+<RadzenComponents @rendermode="InteractiveAuto" />
+
+<RadzenLayout>
+    <RadzenHeader>
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0">
+            <RadzenMenu>
+                <RadzenMenuItem Text="Home" Path="" Icon="home"></RadzenMenuItem>
+                <RadzenMenuItem Text="Videos" Path="videos" Icon="video_file"></RadzenMenuItem>
+                <RadzenMenuItem Text="Re-encode" Path="reencode" Icon="automation"></RadzenMenuItem>
+            </RadzenMenu>
+        </RadzenStack>
+    </RadzenHeader>
+    <RadzenBody>
+        <div class="rz-p-1">
+            <div style="height: calc(100vh - 180px); display: flex; flex-direction: column;">
+                @Body
+            </div>
+        </div>
+    </RadzenBody>
+    <RadzenFooter>
+        <RadzenStack Orientation="Orientation.Horizontal">
+
+            <RadzenProgressBarCircular ProgressBarStyle="ProgressBarStyle.Secondary" Value=@_encodingPercent ShowValue=_progressShowValue Max="100" Min="0"
+                                       Mode=_encodingProgressMode AriaLabel="Processing" Visible=@Comm.Status.IsRunning.Value />
+            <RadzenBadge BadgeStyle="BadgeStyle.Primary" Text=@Comm.Status.Status.Value Style="align-content: center;" />
+
+            @if (_videoToProcessCount > 0)
+            {
+                <RadzenBadge BadgeStyle="BadgeStyle.Info" Text=@($"{_videoToProcessCount} videos to process") Style="align-content: center;" />
+            }
+            <RadzenStack Orientation="Orientation.Vertical" Gap="0.1rem">
+                <RadzenText Text=@($"Last file: {Comm.Status.Filename.Value}") Style="font-size:70%;" />
+                <RadzenText Text=@($"Log: {LogMain.LastLine.Value}") Style="font-size:70%;" />
+                <RadzenText Text=@($"Log FFMPEG: {LogFfmpeg.LastLine.Value}") Style="font-size:70%;" />
+            </RadzenStack>
+        </RadzenStack>
+
+    </RadzenFooter>
+</RadzenLayout>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="relo_cd">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+

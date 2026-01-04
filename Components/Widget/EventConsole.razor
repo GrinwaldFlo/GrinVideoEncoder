@@ -1,0 +1,17 @@
+<RadzenCard Variant="Variant.Outlined" class="rz-mt-2">
+    <RadzenStack Orientation="Orientation.Vertical" Gap="0.1rem" @attributes=@Attributes>
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+            <RadzenText TextStyle="TextStyle.Subtitle1" TagName="TagName.P" class="rz-m-0" Text=@Title />
+            <RadzenButton Click=@Clear Text="Clear console" ButtonStyle="ButtonStyle.Base" Variant="Variant.Flat" Size="ButtonSize.Small" />
+        </RadzenStack>
+        <RadzenStack Orientation="Orientation.Vertical" Gap="0" ID="event-console" class="rz-pt-1" Style="border-top: var(--rz-grid-cell-border);overflow: auto; height:300px; flex: 1;">
+            @foreach (var message in GetMessages())
+            {
+                <RadzenAlert ShowIcon="false" Variant="Variant.Text" AlertStyle="message.AlertStyle" Size="AlertSize.ExtraSmall" Shade="Shade.Default" AllowClose="false" Style="font-size: 0.75rem">
+                    <span Style="opacity: 0.6;">@message.Date?.ToString("HH:mm:ss.ff")</span> @message.Text
+                </RadzenAlert>
+            }
+        </RadzenStack>
+    </RadzenStack>
+</RadzenCard>
+
