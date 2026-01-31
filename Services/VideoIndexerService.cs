@@ -92,6 +92,7 @@ public class VideoIndexerService : BackgroundService
 		var directories = new Stack<string>();
 		directories.Push(_settings.IndexerPath);
 		int indexedCount = 0;
+		var foundFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
 		while (directories.Count > 0)
 		{
@@ -108,6 +109,7 @@ public class VideoIndexerService : BackgroundService
 
 					if (IsEligibleVideoFile(filePath))
 					{
+						foundFiles.Add(filePath);
 						await IndexFile(filePath);
 						indexedCount++;
 					}
@@ -130,8 +132,36 @@ public class VideoIndexerService : BackgroundService
 
 		_log.Information("Initial indexing complete. Processed {Count} eligible files.", indexedCount);
 
+		// Clean up database entries for files that no longer exist
+		if (!stoppingToken.IsCancellationRequested)
+			await CleanMissingFiles(foundFiles, stoppingToken);
+
 		// Checkpoint WAL after scanning to commit all indexed files to the main database
 		await VideoDbContext.CheckpointWalAsync( _log);
+	}
+
+	private async Task CleanMissingFiles(HashSet<string> foundFiles, CancellationToken stoppingToken)
+	{
+		await using var context = new VideoDbContext();
+
+		var dbFiles = await context.VideoFiles
+			.Where(v => v.DirectoryPath.StartsWith(_settings.IndexerPath))
+			.Select(v => new { v.Id, FullPath = v.DirectoryPath + Path.DirectorySeparatorChar + v.Filename })
+			.ToListAsync(stoppingToken);
+
+		var missingFileIds = dbFiles
+			.Where(f => !foundFiles.Contains(f.FullPath))
+			.Select(f => f.Id)
+			.ToList();
+
+		if (missingFileIds.Count > 0)
+		{
+			int removed = await context.VideoFiles
+				.Where(v => missingFileIds.Contains(v.Id))
+				.ExecuteDeleteAsync(stoppingToken);
+
+			_log.Information("Removed {Count} database entries for files that no longer exist", removed);
+		}
 	}
 
 	private bool IsEligibleFolder(string fullpath)
