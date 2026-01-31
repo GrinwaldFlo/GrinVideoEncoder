@@ -234,6 +234,8 @@ public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log,
 					.AddParameter("-rc-lookahead 32")
 					.AddParameter("-spatial-aq 1")
 					.AddParameter("-temporal-aq 1")
+					.AddParameter("-g 60")
+					.AddParameter("-keyint_min 30")
 					.AddParameter("-gpu 0");
 				break;
 
@@ -243,6 +245,8 @@ public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log,
 					.AddParameter("-rc cqp")
 					.AddParameter($"-qp_i {settings.QualityLevel}")
 					.AddParameter($"-qp_p {settings.QualityLevel}")
+					.AddParameter("-g 60")
+					.AddParameter("-keyint_min 30")
 					.AddParameter("-pix_fmt yuv420p")
 					.AddParameter("-tag:v hvc1");
 				break;
