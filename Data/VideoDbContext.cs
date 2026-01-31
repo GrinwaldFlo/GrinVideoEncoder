@@ -58,6 +58,17 @@ public class VideoDbContext() : DbContext
 		}
 	}
 
+	internal static async Task MarkKept(Guid id)
+	{
+		await using var context = new VideoDbContext();
+		var videoToReset = await context.VideoFiles.FirstOrDefaultAsync(x => x.Id == id);
+		if (videoToReset != null)
+		{
+			videoToReset.Status = CompressionStatus.Kept;
+			await context.SaveChangesAsync();
+		}
+	}
+
 	internal static void SetPath(string databasePath)
 	{
 		DbPath = databasePath;
@@ -91,7 +102,7 @@ public class VideoDbContext() : DbContext
 	internal async Task<VideoFile?> PopNextVideoToProcess()
 	{
 		var video = await VideoFiles.FirstOrDefaultAsync(x => x.Status == CompressionStatus.ToProcess);
-		if(video != null)
+		if (video != null)
 		{
 			video.Status = CompressionStatus.Processing;
 			await SaveChangesAsync();

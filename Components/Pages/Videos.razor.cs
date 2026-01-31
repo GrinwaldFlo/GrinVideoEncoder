@@ -22,7 +22,8 @@ public partial class Videos : IDisposable
 		CopyDir,
 		OpenDir,
 		ResetError,
-		Play
+		Play,
+		MarkKept
 	}
 
 	[Inject] private CommunicationService Comm { get; set; } = null!;
@@ -57,7 +58,7 @@ public partial class Videos : IDisposable
 		_disposables.Add(Comm.Status.Filename.Subscribe(async _ => await RefreshDb()));
 	}
 
-	private async Task ContextMenuAction(VideoFile video, CMenuAction action)
+	private async Task ContextMenuAction(VideoFile video, CMenuAction? action)
 	{
 		switch (action)
 		{
@@ -109,7 +110,10 @@ public partial class Videos : IDisposable
 			case CMenuAction.ResetError:
 				await VideoDbContext.ResetErrorAsync(video.Id);
 				await RefreshDb();
-
+				break;
+			case CMenuAction.MarkKept:
+				await VideoDbContext.MarkKept(video.Id);
+				await RefreshDb();
 				break;
 
 			default:
@@ -120,6 +124,8 @@ public partial class Videos : IDisposable
 	private void OnContextMenu(DataGridCellMouseEventArgs<VideoFile> args)
 	{
 		var curItem = args.Data;
+		if (curItem == null)
+			return;
 
 		ContextMenu.Open(args,
 		   [
@@ -128,8 +134,10 @@ public partial class Videos : IDisposable
 				new ContextMenuItem(){ Text = "Open dir", Value = CMenuAction.OpenDir, Icon = "folder_open" },
 				new ContextMenuItem(){ Text = "Reset status", Value = CMenuAction.ResetError, Icon = "reset_shutter_speed" , 
 					Disabled = curItem.Status is not CompressionStatus.FailedToCompress and not CompressionStatus.Processing and not CompressionStatus.Bigger},
+				new ContextMenuItem(){ Text = "Keep original", Value = CMenuAction.MarkKept, Icon = "check" ,
+					Disabled = curItem.Status is not CompressionStatus.Original},
 		   ],
-		   async (e) => await ContextMenuAction(curItem, (CMenuAction)e.Value));
+		   async (e) => await ContextMenuAction(curItem, (CMenuAction?)e.Value));
 	}
 
 	private async Task RefreshDb()
