@@ -5,8 +5,8 @@ namespace GrinVideoEncoder.Services;
 public class MainBackgroundService : BackgroundService
 {
 	private readonly CommunicationService _communication;
-	private readonly IAppSettings _settings;
 	private readonly LogMain _log;
+	private readonly IAppSettings _settings;
 	private readonly VideoProcessorService _videoProcessor;
 	private readonly FileSystemWatcher _watcher;
 
@@ -49,6 +49,35 @@ public class MainBackgroundService : BackgroundService
 		}
 	}
 
+	private static void CleanEmptySubFolders(string trashPath)
+	{
+		if (!Directory.Exists(trashPath))
+			return;
+
+		try
+		{
+			foreach (string directory in Directory.GetDirectories(trashPath))
+			{
+				CleanEmptySubFolders(directory);
+				if (!Directory.EnumerateFileSystemEntries(directory).Any())
+				{
+					try
+					{
+						Directory.Delete(directory, false);
+					}
+					catch (Exception ex)
+					{
+						Console.WriteLine($"Failed to delete directory {directory}: {ex.Message}");
+					}
+				}
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Failed to clean empty subfolders in {trashPath}: {ex.Message}");
+		}
+	}
+
 	/// <summary>
 	/// Clean trash folder but keep last 2 files
 	/// </summary>
@@ -57,9 +86,9 @@ public class MainBackgroundService : BackgroundService
 		if (!Directory.Exists(_settings.TrashPath))
 			return;
 		DirectoryInfo trashDir = new(_settings.TrashPath);
-		var files = trashDir.GetFiles()
+		var files = trashDir.GetFiles("*.*", SearchOption.AllDirectories)
 		.OrderByDescending(f => f.LastWriteTime)
-		.Skip(2)
+		.Skip(100)
 		.ToArray();
 
 		foreach (var file in files)
@@ -73,6 +102,7 @@ public class MainBackgroundService : BackgroundService
 				Console.WriteLine($"Failed to delete file {file.FullName}: {ex.Message}");
 			}
 		}
+		CleanEmptySubFolders(_settings.TrashPath);
 	}
 
 	private async Task ProcessVideo(string filePath)

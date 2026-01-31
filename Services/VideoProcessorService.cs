@@ -6,7 +6,7 @@ using static GrinVideoEncoder.Utils.GpuDetector;
 
 namespace GrinVideoEncoder.Services;
 
-public class VideoProcessorService(IAppSettings settings, LogFfmpeg log, CommunicationService comm)
+public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log, CommunicationService comm)
 {
 	public bool ReadyToProcess { get; private set; } = true;
 
@@ -216,7 +216,6 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log, Communi
 		var audioStreams = mediaInfo.AudioStreams;
 		var subtitleStreams = mediaInfo.SubtitleStreams;
 
-
 		if (!outputPath.EndsWith(".mp4"))
 			throw new Exception("Please provide an mp4 file");
 
@@ -294,7 +293,7 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log, Communi
 		if (string.IsNullOrEmpty(log))
 			return null;
 
-		var timeMatch = System.Text.RegularExpressions.Regex.Match(log, @"time=(\d{2}):(\d{2}):(\d{2}\.\d{2})");
+		var timeMatch = FindTimeSpandRegex().Match(log);
 		if (timeMatch.Success &&
 			int.TryParse(timeMatch.Groups[1].Value, out int hours) &&
 			int.TryParse(timeMatch.Groups[2].Value, out int minutes) &&
@@ -307,4 +306,6 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log, Communi
 		return null;
 	}
 
+	[System.Text.RegularExpressions.GeneratedRegex(@"time=(\d{2}):(\d{2}):(\d{2}\.\d{2})")]
+	private static partial System.Text.RegularExpressions.Regex FindTimeSpandRegex();
 }

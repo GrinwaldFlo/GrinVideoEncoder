@@ -126,6 +126,8 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 		long? compressedPixels = compressedInfo?.VideoStreams.FirstOrDefault()?.Width * compressedInfo?.VideoStreams.FirstOrDefault()?.Height;
 		double? originalFps = originalInfo?.VideoStreams.FirstOrDefault()?.Framerate;
 		double? compressedFps = compressedInfo?.VideoStreams.FirstOrDefault()?.Framerate;
+		var originalCreationTime = new FileInfo(video.FullPath).CreationTime;
+		var originalLastWriteTime = new FileInfo(video.FullPath).LastWriteTime;
 
 		if (!success)
 		{
@@ -171,6 +173,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 				video.Filename = Path.ChangeExtension(video.Filename, MP4_EXT);
 				// Step 5: Move new file to original location
 				File.Copy(tempOutputPath, video.FullPath, true);
+				RestoreDate(video.FullPath, originalCreationTime, originalLastWriteTime);
 				/// Temp dir is removed only if everything went well
 				Directory.Delete(tempDir, true);
 				// Step 6: Update indexation data
@@ -194,5 +197,14 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 			video.Status = CompressionStatus.FailedToCompress;
 			Directory.Delete(tempDir, true);
 		}
+	}
+
+	private static void RestoreDate(string fullPath, DateTime originalCreationTime, DateTime originalLastWriteTime)
+	{
+		_ = new FileInfo(fullPath)
+		{
+			CreationTime = originalCreationTime,
+			LastWriteTime = originalLastWriteTime
+		};
 	}
 }
