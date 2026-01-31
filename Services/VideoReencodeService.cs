@@ -151,6 +151,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 		{
 			video.Status = CompressionStatus.Bigger;
 			log.Warning("New video is bigger than original {Video} {OriginalSize:F0} [MB] <  {NewSize:F0} [MB]", video.FullPath, new FileInfo(tempInputPath).Length / (1024 * 1024.0), new FileInfo(tempOutputPath).Length / (1024 * 1024.0));
+			Directory.Delete(tempDir, true);
 		}
 		else
 		{
