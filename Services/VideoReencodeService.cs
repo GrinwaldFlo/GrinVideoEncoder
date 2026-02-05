@@ -131,23 +131,23 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 
 		if (!success)
 		{
-			log.Error("Failed to encode");
+			log.Error("{Video} | Failed to encode", video.FullPath);
 		}
 		else if (durationDiff == null || originalFps == null || compressedFps == null || originalPixels == null || compressedPixels == null)
 		{
-			log.Error("Failed to read media info");
+			log.Error("{Video} | Failed to read media info", video.FullPath);
 		}
 		else if (durationDiff > 0.1)
 		{
-			log.Error("Duration difference is too big {Duration:F2} [s]", durationDiff);
+			log.Error("{Video} | Duration difference is too big {Duration:F2} [s]", video.FullPath, durationDiff);
 		}
 		else if (originalPixels != compressedPixels)
 		{
-			log.Error("Resolution has changed {Resolution1} / {Resolution2}", originalPixels, compressedPixels);
+			log.Error("{Video} | Resolution has changed {Resolution1} / {Resolution2}", video.FullPath, originalPixels, compressedPixels);
 		}
 		else if (Math.Abs(originalFps.Value - compressedFps.Value) > 0.1)
 		{
-			log.Error("FPS has changed {FPS1:F2} / {FPS2:F2}", originalFps.Value, compressedFps.Value);
+			log.Error("{Video} | FPS has changed {FPS1:F2} / {FPS2:F2}", video.FullPath, originalFps.Value, compressedFps.Value);
 		}
 		else if (new FileInfo(tempInputPath).Length < new FileInfo(tempOutputPath).Length)
 		{
