@@ -1,3 +1,4 @@
+using System.Text;
 using GrinVideoEncoder.Models;
 
 namespace GrinVideoEncoder.Services;
@@ -90,7 +91,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 			Directory.Delete(tempDir, true);
 			return;
 		}
-		
+
 		try
 		{
 			await videoProcessor.EncodeVideo(tempInputPath, tempOutputPath, comm.VideoProcessToken.Token);
@@ -128,26 +129,29 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 		double? compressedFps = compressedInfo?.VideoStreams.FirstOrDefault()?.Framerate;
 		var originalCreationTime = new FileInfo(video.FullPath).CreationTime;
 		var originalLastWriteTime = new FileInfo(video.FullPath).LastWriteTime;
+		double fpsTol = 2;
+		bool hasFpsDiff = Math.Abs(originalFps ?? 0 - compressedFps ?? 0) > fpsTol;
+		(double min, double max) originalFpsMinMax = hasFpsDiff ? await videoProcessor.GetDiffFps(tempInputPath) : (0,0);
 
 		if (!success)
 		{
-			log.Error("{Video} | Failed to encode", video.FullPath);
+			WriteError($"{video.FullPath} | Failed to encode");
 		}
 		else if (durationDiff == null || originalFps == null || compressedFps == null || originalPixels == null || compressedPixels == null)
 		{
-			log.Error("{Video} | Failed to read media info", video.FullPath);
+			WriteError($"{video.FullPath} | Failed to read media info");
 		}
 		else if (durationDiff > 0.1)
 		{
-			log.Error("{Video} | Duration difference is too big {Duration:F2} [s]", video.FullPath, durationDiff);
+			WriteError($"{video.FullPath} | Duration difference is too big {durationDiff:F2} [s]");
 		}
 		else if (originalPixels != compressedPixels)
 		{
-			log.Error("{Video} | Resolution has changed {Resolution1} / {Resolution2}", video.FullPath, originalPixels, compressedPixels);
+			WriteError($"{video.FullPath} | Resolution has changed {originalPixels} / {compressedPixels}");
 		}
-		else if (Math.Abs(originalFps.Value - compressedFps.Value) > 0.1)
+		else if (hasFpsDiff && (originalFpsMinMax.max - originalFpsMinMax.min) < fpsTol)
 		{
-			log.Error("{Video} | FPS has changed {FPS1:F2} / {FPS2:F2}", video.FullPath, originalFps.Value, compressedFps.Value);
+			WriteError($"{video.FullPath} | FPS has changed {originalFps.Value:F2} / {compressedFps.Value:F2}");
 		}
 		else if (new FileInfo(tempInputPath).Length < new FileInfo(tempOutputPath).Length)
 		{
@@ -159,6 +163,10 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 		{
 			try
 			{
+				if((originalFpsMinMax.max - originalFpsMinMax.min) > fpsTol)
+				{ 
+					log.Warning("{video} has originally a FPS between {min:F2} and {max:F2}", video.FullPath, originalFpsMinMax.min, originalFpsMinMax.max);
+				}
 				string indexerPath = Path.GetFullPath(settings.IndexerPath);
 				string videoDirpath = Path.GetFullPath(video.DirectoryPath);
 				string relativePath = videoDirpath[indexerPath.Length..].TrimStart(Path.DirectorySeparatorChar);
@@ -180,7 +188,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 				video.FileSizeCompressed = new FileInfo(video.FullPath).Length;
 				video.Status = CompressionStatus.Compressed;
 				video.LastModified = DateTime.Now;
-				log.Information("New video successfully encoded {Video}, reduced of {CompressionFactor:F1}%", video.FullPath, video.CompressionFactor);
+				log.Information("New video successfully encoded {Video}, reduced of {CompressionFactor:F1}%", video.FullPath, video.CompressionFactor ?? 0d);
 				comm.Status.Status.OnNext("Done");
 			}
 			catch (Exception ex)
@@ -191,11 +199,31 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 			}
 		}
 
-		// Meaning a check has failed
-		if (video.Status == CompressionStatus.Processing)
+		void WriteError(string message)
 		{
-			video.Status = CompressionStatus.FailedToCompress;
-			Directory.Delete(tempDir, true);
+			log.Error(message);
+
+			StringBuilder text = new(message);
+			text.AppendLine();
+			text.AppendLine("╔════════════════════════════════════════════════════════════════════════════════════╗");
+			text.AppendLine("║                           DETAILED COMPARISON TABLE                                ║");
+			text.AppendLine("╚════════════════════════════════════════════════════════════════════════════════════╝");
+			text.AppendLine();
+			
+			// Comparison table
+			text.AppendLine($"{"Property",-25} | {"Original",-30} | {"Compressed",-30}");
+			text.AppendLine(new string('─', 90));
+			
+			text.AppendLine($"{"Duration",-25} | {originalInfo?.Duration.TotalSeconds:F4} s {"",-20} | {compressedInfo?.Duration.TotalSeconds:F4} s");
+			text.AppendLine($"{"Resolution",-25} | {originalInfo?.VideoStreams.FirstOrDefault()?.Width}x{originalInfo?.VideoStreams.FirstOrDefault()?.Height} {"",-18} | {compressedInfo?.VideoStreams.FirstOrDefault()?.Width}x{compressedInfo?.VideoStreams.FirstOrDefault()?.Height}");
+			text.AppendLine($"{"FPS",-25} | {originalInfo?.VideoStreams.FirstOrDefault()?.Framerate:F3} {"",-25} | {compressedInfo?.VideoStreams.FirstOrDefault()?.Framerate:F3}");
+			text.AppendLine($"{"Total Pixels",-25} | {(originalInfo?.VideoStreams.FirstOrDefault()?.Width ?? 0) * (originalInfo?.VideoStreams.FirstOrDefault()?.Height ?? 0)} {"",-22} | {(compressedInfo?.VideoStreams.FirstOrDefault()?.Width ?? 0) * (compressedInfo?.VideoStreams.FirstOrDefault()?.Height ?? 0)}");
+			text.AppendLine($"{"Video Bitrate",-25} | {originalInfo?.VideoStreams.FirstOrDefault()?.Bitrate} {"",-19} | {compressedInfo?.VideoStreams.FirstOrDefault()?.Bitrate}");
+			text.AppendLine($"{"Audio Bitrate",-25} | {originalInfo?.AudioStreams.FirstOrDefault()?.Bitrate} {"",-19} | {compressedInfo?.AudioStreams.FirstOrDefault()?.Bitrate}");
+			text.AppendLine($"{"Sample Rate",-25} | {originalInfo?.AudioStreams.FirstOrDefault()?.SampleRate} Hz {"",-19} | {compressedInfo?.AudioStreams.FirstOrDefault()?.SampleRate} Hz");
+			text.AppendLine($"{"File Size",-25} | {new FileInfo(tempInputPath).Length / (1024 * 1024.0):F2} MB {"",-18} | {new FileInfo(tempOutputPath).Length / (1024 * 1024.0):F2} MB");
+
+			File.WriteAllText(Path.Combine(tempDir, "error.txt"), text.ToString());
 		}
 	}
 

@@ -78,6 +78,70 @@ public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log,
 		}
 	}
 
+
+	/// <summary>
+	/// Analyse the video to find the max and min FPS during the video.
+	/// </summary>
+	/// <param name="videoPath">Path to the video file to analyze.</param>
+	/// <returns>The absolute FPS difference</returns>
+	public async Task<(double min, double max)> GetDiffFps(string videoPath)
+	{
+		string ffprobePath = Path.Combine(settings.TempPath, "ffmpeg", "ffprobe.exe");
+		
+		using var process = new System.Diagnostics.Process();
+		process.StartInfo.FileName = ffprobePath;
+		process.StartInfo.Arguments = $"-v error -select_streams v:0 -show_entries frame=best_effort_timestamp_time -of csv=p=0 \"{videoPath}\"";
+		process.StartInfo.UseShellExecute = false;
+		process.StartInfo.RedirectStandardOutput = true;
+		process.StartInfo.RedirectStandardError = true;
+		process.StartInfo.CreateNoWindow = true;
+		process.Start();
+		
+		string output = await process.StandardOutput.ReadToEndAsync();
+		string error = await process.StandardError.ReadToEndAsync();
+		await process.WaitForExitAsync();
+		
+		if (process.ExitCode != 0)
+		{
+			throw new Exception($"FFprobe exited with code {process.ExitCode}. Error: {error}");
+		}
+		
+		// Parse frame timestamps
+		var timestamps = output.Replace(",", "").Split('\n', StringSplitOptions.RemoveEmptyEntries)
+			.Select(line => double.TryParse(line.Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double ts) ? ts : (double?)null)
+			.Where(ts => ts.HasValue)
+			.Select(ts => ts!.Value)
+			.ToList();
+		
+		if (timestamps.Count < 2)
+		{
+			return (0.0, 0.0);
+		}
+		
+		// Calculate instantaneous FPS between consecutive frames
+		var fpsList = new List<double>();
+		for (int i = 1; i < timestamps.Count; i++)
+		{
+			double timeDiff = timestamps[i] - timestamps[i - 1];
+			if (timeDiff > 0)
+			{
+				double fps = 1.0 / timeDiff;
+				fpsList.Add(fps);
+			}
+		}
+		
+		if (fpsList.Count == 0)
+		{
+			return (0.0, 0.0);
+		}
+		
+		double maxFps = fpsList.Max();
+		double minFps = fpsList.Min();
+		
+		return (minFps, maxFps);
+	}
+
+
 	/// <summary>
 	/// Downloads FFmpeg if not exists
 	/// </summary>
