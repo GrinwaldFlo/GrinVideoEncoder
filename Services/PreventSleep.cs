@@ -8,16 +8,18 @@ public class PreventSleep(CommunicationService comm) : BackgroundService
 		bool lastPreventSleep = comm.PreventSleep;
 		while (!stoppingToken.IsCancellationRequested)
 		{
-			if(comm.PreventSleep)
+			// Only call when state changes, not every iteration
+			if (comm.PreventSleep && !lastPreventSleep)
 			{
 				PowerManagement.PreventSleep();
 			}
-			if (!comm.PreventSleep && lastPreventSleep)
+			else if (!comm.PreventSleep && lastPreventSleep)
 			{
 				PowerManagement.AllowSleep();
 			}
+
 			lastPreventSleep = comm.PreventSleep;
-			await Task.Delay(30000, stoppingToken);
+			await Task.Delay(1000, stoppingToken);
 		}
 	}
 }

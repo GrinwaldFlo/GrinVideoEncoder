@@ -2,7 +2,7 @@
 
 <RadzenStack Orientation="Orientation.Horizontal">
     <RadzenButton Icon="cancel" Text="Cancel task" Click="CancelTask" Visible=@(Comm.Status.IsRunning.Value && !Comm.VideoProcessToken.IsCancellationRequested) />
-    <RadzenButton Icon="exit_to_app" Text="Close" Click="CloseApplication" Visible=!Comm.Status.IsRunning.Value />
+    <RadzenButton Icon="exit_to_app" Text="Close" Click="CloseApplication" />
 </RadzenStack>
 
 <RadzenTabs RenderMode="TabRenderMode.Client" Style="height:95%; flex: 1;" >

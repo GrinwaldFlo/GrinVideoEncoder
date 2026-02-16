@@ -130,7 +130,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 		var originalCreationTime = new FileInfo(video.FullPath).CreationTime;
 		var originalLastWriteTime = new FileInfo(video.FullPath).LastWriteTime;
 		double fpsTol = 2;
-		bool hasFpsDiff = Math.Abs(originalFps ?? 0 - compressedFps ?? 0) > fpsTol;
+		bool hasFpsDiff = Math.Abs((originalFps ?? 0) - (compressedFps ?? 0)) > fpsTol;
 		(double min, double max) originalFpsMinMax = hasFpsDiff ? await videoProcessor.GetDiffFps(tempInputPath) : (0,0);
 
 		if (!success)
@@ -201,6 +201,9 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 
 		void WriteError(string message)
 		{
+			video.Status = CompressionStatus.FailedToCompress;
+			comm.Status.Status.OnNext("Error");
+
 			log.Error(message);
 
 			StringBuilder text = new(message);

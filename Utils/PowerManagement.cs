@@ -4,14 +4,21 @@ namespace GrinVideoEncoder.Utils;
 
 /// <summary>
 /// Utility class to prevent the computer from going to sleep during long-running operations.
+/// Uses the modern PowerCreateRequest API which is more reliable than SetThreadExecutionState.
 /// </summary>
 public static class PowerManagement
 {
-	private const uint ES_CONTINUOUS = 0x80000000;
+	private static IntPtr _powerRequest = IntPtr.Zero;
 
-	private const uint ES_DISPLAY_REQUIRED = 0x00000002;
+	/// <summary>
+	/// Power request type for system required (prevents sleep).
+	/// </summary>
+	private const uint PowerRequestTypeSystemRequired = 0;
 
-	private const uint ES_SYSTEM_REQUIRED = 0x00000001;
+	/// <summary>
+	/// Power request type for display required (keeps display on).
+	/// </summary>
+	private const uint PowerRequestTypeDisplayRequired = 1;
 
 	/// <summary>
 	/// Allows the system to enter sleep mode normally.
@@ -19,27 +26,68 @@ public static class PowerManagement
 	/// </summary>
 	public static void AllowSleep()
 	{
-		_ = SetThreadExecutionState(ES_CONTINUOUS);
+		if (_powerRequest != IntPtr.Zero)
+		{
+			PowerClearRequest(_powerRequest, PowerRequestTypeSystemRequired);
+			PowerClearRequest(_powerRequest, PowerRequestTypeDisplayRequired);
+			CloseHandle(_powerRequest);
+			_powerRequest = IntPtr.Zero;
+		}
 	}
 
 	/// <summary>
 	/// Prevents the system from entering sleep mode.
 	/// Call this when starting a long-running operation.
+	/// This uses the modern PowerCreateRequest API which is more reliable than SetThreadExecutionState.
 	/// </summary>
 	public static void PreventSleep()
 	{
-		_ = SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED);
+		if (_powerRequest == IntPtr.Zero)
+		{
+			_powerRequest = PowerCreateRequest(new REASON_CONTEXT { Reason = 0 });
+		}
+
+		if (_powerRequest != IntPtr.Zero)
+		{
+			PowerSetRequest(_powerRequest, PowerRequestTypeSystemRequired);
+		}
 	}
 
 	/// <summary>
 	/// Prevents the system from entering sleep mode and keeps the display on.
 	/// Call this when starting a long-running operation that requires display.
+	/// This uses the modern PowerCreateRequest API which is more reliable than SetThreadExecutionState.
 	/// </summary>
 	public static void PreventSleepAndDisplay()
 	{
-		_ = SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
+		if (_powerRequest == IntPtr.Zero)
+		{
+			_powerRequest = PowerCreateRequest(new REASON_CONTEXT { Reason = 0 });
+		}
+
+		if (_powerRequest != IntPtr.Zero)
+		{
+			PowerSetRequest(_powerRequest, PowerRequestTypeSystemRequired);
+			PowerSetRequest(_powerRequest, PowerRequestTypeDisplayRequired);
+		}
 	}
 
-	[DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-	private static extern uint SetThreadExecutionState(uint esFlags);
+	[StructLayout(LayoutKind.Sequential)]
+	private struct REASON_CONTEXT
+	{
+		public uint Version;
+		public uint Reason;
+	}
+
+	[DllImport("kernel32.dll", SetLastError = true)]
+	private static extern IntPtr PowerCreateRequest(REASON_CONTEXT context);
+
+	[DllImport("kernel32.dll", SetLastError = true)]
+	private static extern bool PowerSetRequest(IntPtr powerRequest, uint powerRequestType);
+
+	[DllImport("kernel32.dll", SetLastError = true)]
+	private static extern bool PowerClearRequest(IntPtr powerRequest, uint powerRequestType);
+
+	[DllImport("kernel32.dll", SetLastError = true)]
+	private static extern bool CloseHandle(IntPtr handle);
 }
