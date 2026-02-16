@@ -11,4 +11,5 @@ public class CommunicationService
 	public bool PreventSleep {  get; set; } = false;
 
 	public bool AskTreatFiles { get; set; } = false;
+
 }

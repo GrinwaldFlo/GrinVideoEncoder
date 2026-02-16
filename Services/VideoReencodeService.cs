@@ -113,8 +113,11 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 		}
 		catch (Exception ex)
 		{
+			video.Status = CompressionStatus.FailedToCompress;
 			comm.Status.Status.OnNext("Error");
 			log.Error("Encoding failed", ex, video);
+			await File.WriteAllTextAsync(Path.Combine(tempDir, "error.txt"), $"{ex}");
+			return;
 		}
 
 		// Step 3: Check DurationSeconds and TotalPixels
@@ -141,7 +144,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 		{
 			WriteError($"{video.FullPath} | Failed to read media info");
 		}
-		else if (durationDiff > 0.1)
+		else if (durationDiff > 0.5)
 		{
 			WriteError($"{video.FullPath} | Duration difference is too big {durationDiff:F2} [s]");
 		}
