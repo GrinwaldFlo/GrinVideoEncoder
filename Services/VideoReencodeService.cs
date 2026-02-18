@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using GrinVideoEncoder.Models;
 
@@ -60,6 +61,18 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 					comm.AskTreatFiles = false;
 					comm.PreventSleep = false;
 				}
+			}
+
+			if (ShouldShutdown())
+			{
+				log.Information("Scheduled shutdown time reached, shutting down the computer");
+				comm.Status.Status.OnNext("Shutting down...");
+				ExecuteShutdown();
+				return;
+			}
+			if(comm.AskClose)
+			{
+				Environment.Exit(0);
 			}
 
 			Thread.Sleep(1000);
@@ -134,7 +147,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 		var originalLastWriteTime = new FileInfo(video.FullPath).LastWriteTime;
 		double fpsTol = 2;
 		bool hasFpsDiff = Math.Abs((originalFps ?? 0) - (compressedFps ?? 0)) > fpsTol;
-		(double min, double max) originalFpsMinMax = hasFpsDiff ? await videoProcessor.GetDiffFps(tempInputPath) : (0,0);
+		(double min, double max) originalFpsMinMax = hasFpsDiff ? await videoProcessor.GetDiffFps(tempInputPath) : (0, 0);
 
 		if (!success)
 		{
@@ -166,8 +179,8 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 		{
 			try
 			{
-				if((originalFpsMinMax.max - originalFpsMinMax.min) > fpsTol)
-				{ 
+				if ((originalFpsMinMax.max - originalFpsMinMax.min) > fpsTol)
+				{
 					log.Warning("{video} has originally a FPS between {min:F2} and {max:F2}", video.FullPath, originalFpsMinMax.min, originalFpsMinMax.max);
 				}
 				string indexerPath = Path.GetFullPath(settings.IndexerPath);
@@ -215,11 +228,11 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 			text.AppendLine("║                           DETAILED COMPARISON TABLE                                ║");
 			text.AppendLine("╚════════════════════════════════════════════════════════════════════════════════════╝");
 			text.AppendLine();
-			
+
 			// Comparison table
 			text.AppendLine($"{"Property",-25} | {"Original",-30} | {"Compressed",-30}");
 			text.AppendLine(new string('─', 90));
-			
+
 			text.AppendLine($"{"Duration",-25} | {originalInfo?.Duration.TotalSeconds:F4} s {"",-20} | {compressedInfo?.Duration.TotalSeconds:F4} s");
 			text.AppendLine($"{"Resolution",-25} | {originalInfo?.VideoStreams.FirstOrDefault()?.Width}x{originalInfo?.VideoStreams.FirstOrDefault()?.Height} {"",-18} | {compressedInfo?.VideoStreams.FirstOrDefault()?.Width}x{compressedInfo?.VideoStreams.FirstOrDefault()?.Height}");
 			text.AppendLine($"{"FPS",-25} | {originalInfo?.VideoStreams.FirstOrDefault()?.Framerate:F3} {"",-25} | {compressedInfo?.VideoStreams.FirstOrDefault()?.Framerate:F3}");
@@ -240,5 +253,24 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 			CreationTime = originalCreationTime,
 			LastWriteTime = originalLastWriteTime
 		};
+	}
+
+	private bool ShouldShutdown()
+	{
+		if (!comm.ScheduledShutdownEnabled)
+			return false;
+
+		return DateTime.Now >= comm.ScheduledShutdownTime;
+	}
+
+	private static void ExecuteShutdown()
+	{
+		Process.Start(new ProcessStartInfo
+		{
+			FileName = "shutdown",
+			Arguments = "/s /t 60 /c \"GrinVideoEncoder scheduled shutdown\"",
+			CreateNoWindow = true,
+			UseShellExecute = false
+		});
 	}
 }

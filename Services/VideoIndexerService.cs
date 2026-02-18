@@ -70,10 +70,10 @@ public class VideoIndexerService : BackgroundService
 				.Where(v => v.DirectoryPath.Contains(containsPattern) || v.DirectoryPath.EndsWith(endsWithPattern))
 				.ExecuteDeleteAsync(stoppingToken);
 			totalRemoved += fileRemoved;
-			if(fileRemoved > 0)
+			if (fileRemoved > 0)
 				_log.Information("{Count} files removed from database because it containts ignore directory {Directory}", fileRemoved, folder);
 		}
-		if(totalRemoved > 0)
+		if (totalRemoved > 0)
 			_log.Information("{Count} files removed from database because it is ignored in directory list", totalRemoved);
 	}
 
@@ -85,6 +85,14 @@ public class VideoIndexerService : BackgroundService
 		_log.Information("Video indexer database initialized at {DatabasePath}", _dbPath);
 	}
 
+	private HashSet<string> _filesInDb = [];
+
+	private async Task LoadCurrentFilesHashSetAsync()
+	{
+		await using var context = new VideoDbContext();
+		_filesInDb = await context.VideoFiles.Select(v => v.FullPath.ToLower()).ToHashSetAsync();
+	}
+
 	private async Task IndexExistingFiles(CancellationToken stoppingToken)
 	{
 		_log.Information("Scanning for existing video files in {IndexerPath}", _settings.IndexerPath);
@@ -93,6 +101,7 @@ public class VideoIndexerService : BackgroundService
 		directories.Push(_settings.IndexerPath);
 		int indexedCount = 0;
 		var foundFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		await LoadCurrentFilesHashSetAsync();
 
 		while (directories.Count > 0)
 		{
@@ -137,7 +146,7 @@ public class VideoIndexerService : BackgroundService
 			await CleanMissingFiles(foundFiles, stoppingToken);
 
 		// Checkpoint WAL after scanning to commit all indexed files to the main database
-		await VideoDbContext.CheckpointWalAsync( _log);
+		await VideoDbContext.CheckpointWalAsync(_log);
 	}
 
 	private async Task CleanMissingFiles(HashSet<string> foundFiles, CancellationToken stoppingToken)
@@ -176,6 +185,9 @@ public class VideoIndexerService : BackgroundService
 	{
 		try
 		{
+			if (_filesInDb.Contains(filePath.ToLower()))
+				return;
+
 			var fileInfo = new FileInfo(filePath);
 			if (!fileInfo.Exists)
 				return;
@@ -203,7 +215,7 @@ public class VideoIndexerService : BackgroundService
 				Width = videoStream?.Width,
 				Height = videoStream?.Height,
 				LastModified = fileInfo.LastWriteTimeUtc,
-				Fps =videoStream?.Framerate
+				Fps = videoStream?.Framerate
 			};
 
 			context.VideoFiles.Add(videoFile);
@@ -272,7 +284,6 @@ public class VideoIndexerService : BackgroundService
 			string extension = Path.GetExtension(filePath).ToLowerInvariant();
 			if (!_settings.VideoExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
 				return false;
-
 			var fileInfo = new FileInfo(filePath);
 			return fileInfo.Exists && fileInfo.Length >= MinFileSizeBytes;
 		}

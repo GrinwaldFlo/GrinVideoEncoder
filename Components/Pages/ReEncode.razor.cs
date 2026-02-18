@@ -16,6 +16,8 @@ public partial class ReEncode : IDisposable
 	private List<VideoFile> _selectedVideos = null!;
 	private List<VideoFile> _videos = null!;
 	public static double Threshold { get; set; } = 900.0;
+	public static double MinSizeMb { get; set; } = 100.0;
+
 	private int _selectedVideoCount = -1;
 	[Inject] private CommunicationService Comm { get; set; } = null!;
 
@@ -74,7 +76,7 @@ public partial class ReEncode : IDisposable
 	private async Task RefreshDb()
 	{
 		using var Context = new VideoDbContext();
-		_videos = await Context.GetVideosWithHighQualityRatioAsync(Threshold);
+		_videos = await Context.GetVideosWithHighQualityRatioAsync(Threshold, MinSizeMb * 1000 * 1000);
 		await UpdateCount();
 		await InvokeAsync(StateHasChanged);
 	}

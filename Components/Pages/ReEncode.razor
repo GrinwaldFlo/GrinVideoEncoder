@@ -4,6 +4,8 @@
 <div class="mb-3">
     <RadzenLabel Text="Quality Ratio Threshold" />
     <RadzenNumeric @bind-Value=ReEncode.Threshold TValue="double" Step="10" Style="width: 200px;" Change="RefreshDb" />
+    <RadzenLabel Text="Min size [MB]" />
+    <RadzenNumeric @bind-Value=ReEncode.MinSizeMb TValue="double" Step="10" Style="width: 200px;" Change="RefreshDb" />
     <RadzenButton Text=@($"Start Re-encoding {_selectedVideoCount} videos") Click="StartReencoding" ButtonStyle="ButtonStyle.Danger" Visible=@(_videos.Count > 0) Disabled="Comm.Status.IsRunning.Value" />
 </div>
 

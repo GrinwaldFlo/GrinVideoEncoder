@@ -1,6 +1,6 @@
 using System.Reactive.Disposables;
 using Microsoft.AspNetCore.Components;
-using Microsoft.EntityFrameworkCore;
+using Radzen;
 
 namespace GrinVideoEncoder.Components.Pages;
 
@@ -10,10 +10,12 @@ public partial class Index : IDisposable
 	private EventConsole? _consoleFfmpeg;
 	private EventConsole? _consoleMain;
 	private bool _disposedValue;
+	private DateTime? _shutdownTime = DateTime.Today.AddHours(23);
 	[Inject] private CommunicationService Comm { get; set; } = null!;
 	[Inject] private LogFfmpeg LogFfmpeg { get; set; } = null!;
 	[Inject] private LogMain LogMain { get; set; } = null!;
 	[Inject] private IAppSettings Settings { get; set; } = null!;
+	[Inject] private NotificationService Notification { get; set; } = null!;
 
 	public void Dispose()
 	{
@@ -50,9 +52,10 @@ public partial class Index : IDisposable
 		}
 	}
 
-	private static void CloseApplication()
+	private void CloseApplication()
 	{
-		Environment.Exit(0);
+		Comm.AskClose = true;
+		Notification.Notify(NotificationSeverity.Info, "Application will close when current file is done");
 	}
 
 	private static async Task FillConsole(GrinLogBase v, EventConsole? console)
@@ -69,5 +72,19 @@ public partial class Index : IDisposable
 	{
 		await Comm.VideoProcessToken.CancelAsync();
 		await InvokeAsync(StateHasChanged);
+	}
+
+	private async Task OnShutdownToggled(bool enabled)
+	{
+		Comm.ScheduledShutdownEnabled = enabled;
+	}
+
+	private void OnShutdownTimeChanged(DateTime? value)
+	{
+		if (value.HasValue)
+		{
+			_shutdownTime = value;
+			Comm.ScheduledShutdownTime = value.Value;			
+		}
 	}
 }

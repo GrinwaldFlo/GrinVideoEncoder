@@ -1,11 +1,14 @@
 @page "/"
 
-<RadzenStack Orientation="Orientation.Horizontal">
+<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center">
     <RadzenButton Icon="cancel" Text="Cancel task" Click="CancelTask" Visible=@(Comm.Status.IsRunning.Value && !Comm.VideoProcessToken.IsCancellationRequested) />
-    <RadzenButton Icon="exit_to_app" Text="Close" Click="CloseApplication" />
+    <RadzenButton Icon="exit_to_app" Text="Close" Click="CloseApplication" Disabled=@Comm.AskClose />
+    <RadzenCheckBox @bind-Value="Comm.ScheduledShutdownEnabled" Name="chkShutdown" TValue=bool Change="OnShutdownToggled" />
+    <RadzenLabel Text="Shutdown at" Component="chkShutdown" />
+    <RadzenDatePicker @bind-Value="_shutdownTime" ShowTime="true" TimeOnly="false" DateFormat="dd MMM yyyy HH:mm" Disabled="@(!Comm.ScheduledShutdownEnabled)" Change="OnShutdownTimeChanged" Style="width:200px" />
 </RadzenStack>
 
-<RadzenTabs RenderMode="TabRenderMode.Client" Style="height:95%; flex: 1;" >
+<RadzenTabs RenderMode="TabRenderMode.Client" Style="height:95%; flex: 1;">
     <Tabs>
         <RadzenTabsItem Text="Dashboard">
             <Dashboard />
