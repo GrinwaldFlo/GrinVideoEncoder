@@ -37,13 +37,13 @@ public class VideoDbContext() : DbContext
 			.ToListAsync();
 	}
 
-	public async Task<List<VideoFile>> GetVideosWithHighQualityRatioAsync(double threshold, double minSizeByte)
+	public async Task<List<VideoFile>> GetVideosWithHighQualityRatioAsync(double threshold, double minSizeByte, DateTime maxLastModifiedTime)
 	{
 		return await VideoFiles
 			.Where(v => v.Status == CompressionStatus.Original)
 			.AsNoTracking()
 			.AsAsyncEnumerable()
-			.Where(v => v.QualityRatioOriginal.HasValue && v.QualityRatioOriginal > threshold && v.FileSizeOriginal > minSizeByte)
+			.Where(v => v.QualityRatioOriginal.HasValue && v.QualityRatioOriginal > threshold && v.FileSizeOriginal > minSizeByte && v.LastModified < maxLastModifiedTime)
 			.ToListAsync();
 	}
 

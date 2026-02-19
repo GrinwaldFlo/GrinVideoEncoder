@@ -6,7 +6,9 @@
     <RadzenNumeric @bind-Value=ReEncode.Threshold TValue="double" Step="10" Style="width: 200px;" Change="RefreshDb" />
     <RadzenLabel Text="Min size [MB]" />
     <RadzenNumeric @bind-Value=ReEncode.MinSizeMb TValue="double" Step="10" Style="width: 200px;" Change="RefreshDb" />
-    <RadzenButton Text=@($"Start Re-encoding {_selectedVideoCount} videos") Click="StartReencoding" ButtonStyle="ButtonStyle.Danger" Visible=@(_videos.Count > 0) Disabled="Comm.Status.IsRunning.Value" />
+    <RadzenLabel Text="Min age [H]" />
+    <RadzenNumeric @bind-Value=ReEncode.MinAgeH TValue="double" Step="10" Style="width: 200px;" Change="RefreshDb" />
+    <RadzenButton Text=@($"Start Re-encoding {_selectedVideoCount} videos") Click="StartReencoding" ButtonStyle="ButtonStyle.Danger" Visible=@(_videos.Count > 0) />
 </div>
 
 <RadzenDataGrid @ref="_grid" TItem=VideoFile Style="height:100%; flex: 1;" AllowFiltering="true" AllowColumnResize="true" AllowAlternatingRows="true" FilterMode="FilterMode.Simple"
