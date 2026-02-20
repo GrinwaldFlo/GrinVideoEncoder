@@ -16,6 +16,9 @@ public static partial class VolumeManagent
 
 	public static long GetFreeSpaceByte(string path)
 	{
+		if (string.IsNullOrEmpty(path))
+			return 0;
+
 		string fullPath = Path.GetFullPath(path);
 
 		string? root = Path.GetPathRoot(fullPath);

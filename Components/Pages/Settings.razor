@@ -1,0 +1,51 @@
+@page "/settings"
+
+<RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+	<RadzenButton Text="Save" Icon="save" ButtonStyle="ButtonStyle.Primary" Click="Save" />
+	<RadzenBadge Text="@_statusMessage" BadgeStyle="@_statusStyle" Visible="@(!string.IsNullOrEmpty(_statusMessage))" />
+</RadzenStack>
+
+<RadzenStack Gap="1rem" Orientation=Orientation.Horizontal>
+
+	<RadzenFieldset Text="Paths" Style="width:600px">
+		<RadzenStack Gap="0.5rem">
+			<RadzenLabel Text="Indexer Path" />
+			<RadzenTextBox @bind-Value="AppSettings.IndexerPath" Style="width: 100%;" />
+
+			<RadzenLabel Text="Work Path (local)" />
+			<RadzenTextBox Value="@AppSettings.WorkPath" Style="width: 100%;" Disabled="true" />
+
+			<RadzenLabel Text="Database Path (roaming)" />
+			<RadzenTextBox Value="@AppSettings.DatabasePath" Style="width: 100%;" Disabled="true" />
+		</RadzenStack>
+	</RadzenFieldset>
+
+	<RadzenFieldset Text="Encoding">
+		<RadzenStack Gap="0.5rem">
+			<RadzenLabel Text="Quality Level (CRF/CQ)" />
+			<RadzenNumeric @bind-Value="AppSettings.QualityLevel" TValue="int" Min="0" Max="51" Style="width: 200px;" />
+
+			<RadzenLabel Text="Force CPU encoding" />
+			<RadzenCheckBox @bind-Value="AppSettings.ForceCpu" TValue="bool" />
+
+			<RadzenLabel Text="Encoding Threshold (quality ratio)" />
+			<RadzenNumeric @bind-Value="AppSettings.EncodingThreshold" TValue="double" Step="10" Style="width: 200px;" />
+		</RadzenStack>
+	</RadzenFieldset>
+
+	<RadzenFieldset Text="File Filters" Style="width:500px">
+		<RadzenStack Gap="0.5rem">
+			<RadzenLabel Text="Min File Size Mb" />
+			<RadzenNumeric @bind-Value="AppSettings.MinFileSizeMb" TValue="double" Min="0" Step="10" Style="width: 200px;" />
+
+			<RadzenLabel Text="Min File Age (hours)" />
+			<RadzenNumeric @bind-Value="AppSettings.MinFileAgeH" TValue="double" Min="0" Step="1" Style="width: 200px;" />
+
+			<RadzenLabel Text="Video Extensions (comma-separated)" />
+			<RadzenTextBox Value="@string.Join(", ", AppSettings.VideoExtensions)" Change="OnExtensionsChanged" Style="width: 100%;" />
+
+			<RadzenLabel Text="Ignore Folders (comma-separated)" />
+			<RadzenTextBox Value="@string.Join(", ", AppSettings.IgnoreFolders)" Change="OnIgnoreFoldersChanged" Style="width: 100%;" />
+		</RadzenStack>
+	</RadzenFieldset>
+</RadzenStack>
