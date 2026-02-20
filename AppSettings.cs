@@ -4,11 +4,11 @@ namespace GrinVideoEncoder;
 
 public class AppSettings : IAppSettings
 {
-	private static readonly string RoamingRoot = Path.Combine(
+	private static readonly string _roamingRoot = Path.Combine(
 		Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
 		"GrinVideoEncoder");
 
-	private static readonly string LocalRoot = Path.Combine(
+	private static readonly string _localRoot = Path.Combine(
 		Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
 		"GrinVideoEncoder");
 
@@ -16,10 +16,10 @@ public class AppSettings : IAppSettings
 	public string ConfigName { get; set; } = string.Empty;
 
 	[JsonIgnore]
-	public string ConfigFilePath => Path.Combine(RoamingRoot, ConfigName, "config.json");
+	public string ConfigFilePath => Path.Combine(_roamingRoot, ConfigName, "config.json");
 
 	[JsonIgnore]
-	public string DatabasePath => Path.Combine(RoamingRoot, ConfigName, "videoindex.db");
+	public string DatabasePath => Path.Combine(_roamingRoot, ConfigName, "videoindex.db");
 
 	[JsonIgnore]
 	public string WorkPath { get; set; } = string.Empty;
@@ -56,9 +56,6 @@ public class AppSettings : IAppSettings
 	/// <inheritdoc/>
 	public List<string> VideoExtensions { get; set; } = [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm"];
 
-	/// <inheritdoc/>
-	public int MinFileSizeMB { get; set; } = 100;
-
 	public List<string> IgnoreFolders { get; set; } = [];
 
 	public double EncodingThreshold { get; set; } = 900;
@@ -72,11 +69,11 @@ public class AppSettings : IAppSettings
 	/// </summary>
 	public void InitializePaths()
 	{
-		WorkPath = Path.Combine(LocalRoot, ConfigName);
+		WorkPath = Path.Combine(_localRoot, ConfigName);
 	}
 
 	/// <summary>
 	/// Returns the roaming root folder for GrinVideoEncoder configs.
 	/// </summary>
-	public static string GetRoamingRoot() => RoamingRoot;
+	public static string GetRoamingRoot() => _roamingRoot;
 }

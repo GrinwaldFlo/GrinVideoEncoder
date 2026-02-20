@@ -11,8 +11,6 @@ public class VideoIndexerService : BackgroundService
 	private readonly LogMain _log;
 	private readonly string _dbPath;
 
-	private long MinFileSizeBytes => _settings.MinFileSizeMB * 1024L * 1024L;
-
 	public VideoIndexerService(IAppSettings settings, LogMain log)
 	{
 		_settings = settings;
@@ -235,48 +233,6 @@ public class VideoIndexerService : BackgroundService
 		}
 	}
 
-	private async Task UpdateFileIndex(string filePath)
-	{
-		try
-		{
-			var fileInfo = new FileInfo(filePath);
-			if (!fileInfo.Exists)
-				return;
-
-			await using var context = new VideoDbContext();
-
-			var existingFile = await context.VideoFiles
-				.FirstOrDefaultAsync(v => v.DirectoryPath == fileInfo.DirectoryName && v.Filename == fileInfo.Name);
-
-			if (existingFile == null)
-			{
-				await IndexFile(filePath);
-				return;
-			}
-
-			if (existingFile.LastModified >= fileInfo.LastWriteTimeUtc)
-				return;
-
-			var mediaInfo = await VideoProcessorService.GetMediaInfo(filePath);
-			var videoStream = mediaInfo?.VideoStreams.FirstOrDefault();
-
-			existingFile.FileSizeOriginal = fileInfo.Length;
-			existingFile.DurationSeconds = (long?)mediaInfo?.Duration.TotalSeconds;
-			existingFile.Width = videoStream?.Width;
-			existingFile.Height = videoStream?.Height;
-			existingFile.LastModified = fileInfo.LastWriteTimeUtc;
-			existingFile.IndexedAt = DateTime.UtcNow;
-
-			await context.SaveChangesAsync();
-
-			_log.Information("Updated index for: {Filename}", fileInfo.Name);
-		}
-		catch (Exception ex)
-		{
-			_log.Error(ex, "Failed to update index for file: {FilePath}", filePath);
-		}
-	}
-
 	private bool IsEligibleVideoFile(string filePath)
 	{
 		try
@@ -285,7 +241,7 @@ public class VideoIndexerService : BackgroundService
 			if (!_settings.VideoExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
 				return false;
 			var fileInfo = new FileInfo(filePath);
-			return fileInfo.Exists && fileInfo.Length >= MinFileSizeBytes;
+			return fileInfo.Exists;
 		}
 		catch
 		{

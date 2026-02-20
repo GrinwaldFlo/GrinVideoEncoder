@@ -13,12 +13,12 @@ public static class PowerManagement
 	/// <summary>
 	/// Power request type for system required (prevents sleep).
 	/// </summary>
-	private const uint PowerRequestTypeSystemRequired = 0;
+	private const uint POWER_REQUEST_TYPE_SYSTEM_REQUIRED = 0;
 
 	/// <summary>
 	/// Power request type for display required (keeps display on).
 	/// </summary>
-	private const uint PowerRequestTypeDisplayRequired = 1;
+	private const uint POWER_REQUEST_TYPE_DISPLAY_REQUIRED = 1;
 
 	/// <summary>
 	/// Allows the system to enter sleep mode normally.
@@ -28,8 +28,8 @@ public static class PowerManagement
 	{
 		if (_powerRequest != IntPtr.Zero)
 		{
-			PowerClearRequest(_powerRequest, PowerRequestTypeSystemRequired);
-			PowerClearRequest(_powerRequest, PowerRequestTypeDisplayRequired);
+			PowerClearRequest(_powerRequest, POWER_REQUEST_TYPE_SYSTEM_REQUIRED);
+			PowerClearRequest(_powerRequest, POWER_REQUEST_TYPE_DISPLAY_REQUIRED);
 			CloseHandle(_powerRequest);
 			_powerRequest = IntPtr.Zero;
 		}
@@ -49,7 +49,7 @@ public static class PowerManagement
 
 		if (_powerRequest != IntPtr.Zero)
 		{
-			PowerSetRequest(_powerRequest, PowerRequestTypeSystemRequired);
+			PowerSetRequest(_powerRequest, POWER_REQUEST_TYPE_SYSTEM_REQUIRED);
 		}
 	}
 
@@ -67,8 +67,8 @@ public static class PowerManagement
 
 		if (_powerRequest != IntPtr.Zero)
 		{
-			PowerSetRequest(_powerRequest, PowerRequestTypeSystemRequired);
-			PowerSetRequest(_powerRequest, PowerRequestTypeDisplayRequired);
+			PowerSetRequest(_powerRequest, POWER_REQUEST_TYPE_SYSTEM_REQUIRED);
+			PowerSetRequest(_powerRequest, POWER_REQUEST_TYPE_DISPLAY_REQUIRED);
 		}
 	}
 

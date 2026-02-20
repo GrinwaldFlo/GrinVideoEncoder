@@ -1,12 +1,9 @@
-
 namespace GrinVideoEncoder.Services;
 
 public class VideoValidator(CommunicationService comm) : BackgroundService
 {
 	protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 	{
-
-
 		bool lastPreventSleep = comm.PreventSleep;
 		while (!stoppingToken.IsCancellationRequested)
 		{
@@ -23,6 +20,5 @@ public class VideoValidator(CommunicationService comm) : BackgroundService
 			lastPreventSleep = comm.PreventSleep;
 			await Task.Delay(1000, stoppingToken);
 		}
-
 	}
 }

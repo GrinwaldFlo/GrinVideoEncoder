@@ -37,10 +37,6 @@ public interface IAppSettings
 	/// </summary>
 	List<string> VideoExtensions { get; set; }
 
-	/// <summary>
-	/// Minimum file size in MB for a video to be indexed.
-	/// </summary>
-	int MinFileSizeMB { get; set; }
 	List<string> IgnoreFolders { get; set; }
 
 	double EncodingThreshold { get; set; }

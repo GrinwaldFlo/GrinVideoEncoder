@@ -1,7 +1,9 @@
 using GrinVideoEncoder;
 using GrinVideoEncoder.Components;
+using GrinVideoEncoder.Data;
 using GrinVideoEncoder.Services;
 using Microsoft.AspNetCore.Hosting.StaticWebAssets;
+using Microsoft.EntityFrameworkCore;
 using Radzen;
 
 // --- Configuration selection ---
@@ -84,6 +86,9 @@ VideoDbContext.SetPath(appSettings.DatabasePath);
 // --- Build the web application ---
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddDbContext<VideoDbContext>(options =>
+	options.UseSqlite($"Data Source={appSettings.DatabasePath};Cache=Shared"));
+
 builder.Services.AddSingleton<IAppSettings>(appSettings);
 builder.Services.AddSingleton(appSettings);
 builder.Services.AddSingleton<LogMain>();
@@ -116,10 +121,14 @@ app.MapRazorComponents<App>()
 
 using (var scope = app.Services.CreateScope())
 {
+	var db = scope.ServiceProvider.GetRequiredService<VideoDbContext>();
+	await db.Database.MigrateAsync();
+
 	var videoProcessor = scope.ServiceProvider.GetRequiredService<VideoProcessorService>();
 	await videoProcessor.FfmpegDownload();
 
 	var logMain = scope.ServiceProvider.GetRequiredService<LogMain>();
+	await VideoDbContext.EnableWalModeAsync();
 	await VideoDbContext.CheckpointWalAsync(logMain);
 }
 

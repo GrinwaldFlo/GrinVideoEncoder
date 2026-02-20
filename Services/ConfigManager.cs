@@ -4,7 +4,7 @@ namespace GrinVideoEncoder.Services;
 
 public static class ConfigManager
 {
-	private static readonly JsonSerializerOptions JsonOptions = new()
+	private static readonly JsonSerializerOptions _jsonOptions = new()
 	{
 		WriteIndented = true
 	};
@@ -24,14 +24,14 @@ public static class ConfigManager
 
 	public static AppSettings LoadConfig(string configName)
 	{
-		var roamingRoot = AppSettings.GetRoamingRoot();
-		var configPath = Path.Combine(roamingRoot, configName, "config.json");
+		string roamingRoot = AppSettings.GetRoamingRoot();
+		string configPath = Path.Combine(roamingRoot, configName, "config.json");
 
 		if (!File.Exists(configPath))
 			throw new FileNotFoundException($"Configuration '{configName}' not found at {configPath}");
 
 		var json = File.ReadAllText(configPath);
-		var settings = JsonSerializer.Deserialize<AppSettings>(json, JsonOptions)
+		var settings = JsonSerializer.Deserialize<AppSettings>(json, _jsonOptions)
 			?? throw new InvalidOperationException($"Failed to deserialize configuration '{configName}'");
 
 		settings.ConfigName = configName;
@@ -44,7 +44,7 @@ public static class ConfigManager
 		var dir = Path.GetDirectoryName(settings.ConfigFilePath)!;
 		Directory.CreateDirectory(dir);
 
-		var json = JsonSerializer.Serialize(settings, JsonOptions);
+		var json = JsonSerializer.Serialize(settings, _jsonOptions);
 		File.WriteAllText(settings.ConfigFilePath, json);
 	}
 

@@ -4,8 +4,14 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GrinVideoEncoder.Data;
 
-public class VideoDbContext() : DbContext
+/// <summary>
+/// Use dotnet ef migrations add <MigrationName> --output-dir Data/Migrations for migration
+/// </summary>
+public class VideoDbContext : DbContext
 {
+	public VideoDbContext() { }
+	public VideoDbContext(DbContextOptions<VideoDbContext> options) : base(options) { }
+
 	public static string DbPath { get; private set; } = string.Empty;
 	public DbSet<VideoFile> VideoFiles { get; set; } = null!;
 
@@ -85,7 +91,8 @@ public class VideoDbContext() : DbContext
 
 	protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 	{
-		optionsBuilder.UseSqlite($"Data Source={DbPath};Cache=Shared");
+		if (!optionsBuilder.IsConfigured)
+			optionsBuilder.UseSqlite($"Data Source={DbPath};Cache=Shared");
 	}
 
 	protected override void OnModelCreating(ModelBuilder modelBuilder)

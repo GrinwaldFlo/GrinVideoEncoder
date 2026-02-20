@@ -15,12 +15,14 @@ public partial class ReEncode : IDisposable
 	private RadzenDataGrid<VideoFile>? _grid;
 	private List<VideoFile> _selectedVideos = null!;
 	private List<VideoFile> _videos = null!;
-	public static double Threshold { get; set; } = 900.0;
-	public static double MinSizeMb { get; set; } = 100.0;
-	public static double MinAgeH { get; set; } = 100.0;
+	public double Threshold { get; set; } 
+	public double MinSizeMb { get; set; } 
+	public double MinAgeH { get; set; }
 
 	private int _selectedVideoCount = -1;
 	[Inject] private CommunicationService Comm { get; set; } = null!;
+
+	[Inject] private AppSettings AppSettings { get; set; } = null!;
 
 	public void Dispose()
 	{
@@ -45,6 +47,10 @@ public partial class ReEncode : IDisposable
 	protected override async Task OnInitializedAsync()
 	{
 		await base.OnInitializedAsync();
+		Threshold = AppSettings.EncodingThreshold;
+		MinSizeMb = AppSettings.MinFileSizeMb;
+		MinAgeH = AppSettings.MinFileAgeH;
+
 		_disposables.Add(Comm.Status.IsRunning.Subscribe(async _ => await InvokeAsync(StateHasChanged)));
 		await RefreshDb();
 	}
