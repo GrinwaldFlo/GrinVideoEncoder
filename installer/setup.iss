@@ -11,7 +11,7 @@ Compression=lzma2
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64compatible
 WizardStyle=modern
-SetupIconFile=installer\setup-icon.ico
+SetupIconFile=setup-icon.ico
 UninstallDisplayIcon={app}\GrinVideoEncoder.exe
 PrivilegesRequired=lowest
 
