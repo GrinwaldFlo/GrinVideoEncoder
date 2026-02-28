@@ -86,6 +86,8 @@ VideoDbContext.SetPath(appSettings.DatabasePath);
 // --- Build the web application ---
 var builder = WebApplication.CreateBuilder(args);
 
+builder.WebHost.UseUrls($"http://localhost:{appSettings.Port}");
+
 builder.Logging.AddFilter("Microsoft.AspNetCore", LogLevel.Warning);
 builder.Logging.AddFilter("Microsoft.AspNetCore.Watch", LogLevel.Warning);
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);

@@ -15,10 +15,13 @@
 			<RadzenLabel Text="Work Path (local)" />
 			<RadzenTextBox Value="@AppSettings.WorkPath" Style="width: 100%;" Disabled="true" />
 
-			<RadzenLabel Text="Database Path (roaming)" />
-			<RadzenTextBox Value="@AppSettings.DatabasePath" Style="width: 100%;" Disabled="true" />
-		</RadzenStack>
-	</RadzenFieldset>
+				<RadzenLabel Text="Database Path (roaming)" />
+					<RadzenTextBox Value="@AppSettings.DatabasePath" Style="width: 100%;" Disabled="true" />
+
+					<RadzenLabel Text="Port (restart required)" />
+					<RadzenNumeric @bind-Value="AppSettings.Port" TValue="int" Min="1" Max="65535" Style="width: 200px;" />
+				</RadzenStack>
+			</RadzenFieldset>
 
 	<RadzenFieldset Text="Encoding">
 		<RadzenStack Gap="0.5rem">

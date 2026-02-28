@@ -64,6 +64,9 @@ public class AppSettings : IAppSettings
 
 	public double MinFileAgeH { get; set; } = 100;
 
+	/// <inheritdoc/>
+	public int Port { get; set; } = 14563;
+
 	/// <summary>
 	/// Serialized Radzen DataGridSettings for the Videos page.
 	/// </summary>
