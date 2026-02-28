@@ -44,7 +44,7 @@ public static class PowerManagement
 	{
 		if (_powerRequest == IntPtr.Zero)
 		{
-			_powerRequest = PowerCreateRequest(new REASON_CONTEXT { Reason = 0 });
+			_powerRequest = PowerCreateRequest(new ReasonContext { Reason = 0 });
 		}
 
 		if (_powerRequest != IntPtr.Zero)
@@ -62,7 +62,7 @@ public static class PowerManagement
 	{
 		if (_powerRequest == IntPtr.Zero)
 		{
-			_powerRequest = PowerCreateRequest(new REASON_CONTEXT { Reason = 0 });
+			_powerRequest = PowerCreateRequest(new ReasonContext { Reason = 0 });
 		}
 
 		if (_powerRequest != IntPtr.Zero)
@@ -73,14 +73,14 @@ public static class PowerManagement
 	}
 
 	[StructLayout(LayoutKind.Sequential)]
-	private struct REASON_CONTEXT
+	private struct ReasonContext
 	{
 		public uint Version;
 		public uint Reason;
 	}
 
 	[DllImport("kernel32.dll", SetLastError = true)]
-	private static extern IntPtr PowerCreateRequest(REASON_CONTEXT context);
+	private static extern IntPtr PowerCreateRequest(ReasonContext context);
 
 	[DllImport("kernel32.dll", SetLastError = true)]
 	private static extern bool PowerSetRequest(IntPtr powerRequest, uint powerRequestType);

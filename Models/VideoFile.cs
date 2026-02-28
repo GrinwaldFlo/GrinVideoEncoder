@@ -12,6 +12,15 @@ public enum CompressionStatus
 	Kept = 7
 }
 
+public enum SanityStatus
+{
+	Unknown = 0,
+	OriginalOk = 1,
+	OriginalKo = 2,
+	EncodedOk = 3,
+	EncodedKo = 4
+}
+
 public partial class VideoFile
 {
 	public double? CompressionFactor => FileSizeCompressed.HasValue && FileSizeOriginal > 0
@@ -40,6 +49,13 @@ public partial class VideoFile
 	public DateTime IndexedAt { get; set; } = DateTime.UtcNow;
 
 	public DateTime LastModified { get; set; }
+
+	public string? EncodingErrorMessage { get; set; }
+
+	/// <summary>
+	/// Does the file looks OK
+	/// </summary>
+	public SanityStatus Sanity { get; set; } = SanityStatus.Unknown;
 
 	public double? QualityRatio => FileSizeCompressed.HasValue
 			? QualityRatioCompressed

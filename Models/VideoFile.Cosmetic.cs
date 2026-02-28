@@ -82,18 +82,14 @@ public partial class VideoFile
 
 		long totalSeconds = durationSeconds.Value;
 		long hours = totalSeconds / 3600;
-		long minutes = (totalSeconds % 3600) / 60;
+		long minutes = totalSeconds % 3600 / 60;
 		long seconds = totalSeconds % 60;
 
-		if (hours >= 1)
-			return $"{hours}:{minutes:D2}:{seconds:D2}";
-		return $"{minutes}:{seconds:D2}";
+		return hours >= 1 ? $"{hours}:{minutes:D2}:{seconds:D2}" : $"{minutes}:{seconds:D2}";
 	}
 
 	private static string FormatResolution(int? width, int? height)
 	{
-		if (!width.HasValue || !height.HasValue)
-			return "-";
-		return $"{width}×{height}";
+		return !width.HasValue || !height.HasValue ? "-" : $"{width}×{height}";
 	}
 }

@@ -28,10 +28,7 @@ public partial class InitialCreate : Migration
 				Status = table.Column<int>(type: "INTEGER", nullable: false),
 				Width = table.Column<int>(type: "INTEGER", nullable: true)
 			},
-			constraints: table =>
-			{
-				table.PrimaryKey("PK_VideoFiles", x => x.Id);
-			});
+			constraints: table => table.PrimaryKey("PK_VideoFiles", x => x.Id));
 	}
 
 	/// <inheritdoc />

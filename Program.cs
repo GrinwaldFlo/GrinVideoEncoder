@@ -40,7 +40,7 @@ if (configName is null)
 
 		Console.WriteLine($"  [0] Create new configuration");
 		Console.Write("Select a configuration: ");
-		var input = Console.ReadLine()?.Trim();
+		string? input = Console.ReadLine()?.Trim();
 
 		if (int.TryParse(input, out int choice) && choice >= 0 && choice <= availableConfigs.Count)
 		{

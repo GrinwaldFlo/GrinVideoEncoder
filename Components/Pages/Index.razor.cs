@@ -37,6 +37,12 @@ public partial class Index : IDisposable
 		}
 	}
 
+	protected override void OnInitialized()
+	{
+		base.OnInitialized();
+		_shutdownTime = Comm.ScheduledShutdownTime;
+	}
+
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
 		await base.OnAfterRenderAsync(firstRender);
@@ -77,6 +83,11 @@ public partial class Index : IDisposable
 	private async Task OnShutdownToggled(bool enabled)
 	{
 		Comm.ScheduledShutdownEnabled = enabled;
+		if(enabled && (_shutdownTime == null || _shutdownTime.Value.Year > 2050))
+		{
+			_shutdownTime = DateTime.Now.AddHours(5);
+			Comm.ScheduledShutdownTime = _shutdownTime.Value;
+		}
 	}
 
 	private void OnShutdownTimeChanged(DateTime? value)

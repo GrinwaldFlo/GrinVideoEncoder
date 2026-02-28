@@ -52,10 +52,10 @@ public abstract class GrinLogBase(string path, string name)
 			str = line;
 		}
 
-		History.Add(str);
+		History.Add($"{DateTime.Now} - {str}");
 		if (History.Count > 5000)
 			History.RemoveAt(0);
-		LastLine.OnNext(str);
+		LastLine.OnNext($"{DateTime.Now} - {str}");
 	}
 
 	public void Information(string messageTemplate, params object?[]? args)

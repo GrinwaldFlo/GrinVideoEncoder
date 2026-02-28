@@ -5,7 +5,8 @@ using Microsoft.EntityFrameworkCore;
 namespace GrinVideoEncoder.Data;
 
 /// <summary>
-/// Use dotnet ef migrations add <MigrationName> --output-dir Data/Migrations for migration
+/// Use :
+/// dotnet ef migrations add <MigrationName> --output-dir Data/Migrations
 /// </summary>
 public class VideoDbContext : DbContext
 {

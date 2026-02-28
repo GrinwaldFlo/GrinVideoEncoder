@@ -22,17 +22,10 @@ public static partial class VolumeManagent
 		string fullPath = Path.GetFullPath(path);
 
 		string? root = Path.GetPathRoot(fullPath);
-		if (!string.IsNullOrEmpty(root) && !root.StartsWith("\\\\"))
-		{
-			return new DriveInfo(root).AvailableFreeSpace;
-		}
 
-		if (GetDiskFreeSpaceExW(fullPath, out ulong freeBytes, out _, out _))
-		{
-			return (long)freeBytes;
-		}
-
-		return 0;
+		return !string.IsNullOrEmpty(root) && !root.StartsWith("\\\\")
+			? new DriveInfo(root).AvailableFreeSpace
+			: GetDiskFreeSpaceExW(fullPath, out ulong freeBytes, out _, out _) ? (long)freeBytes : 0;
 	}
 
 	public static long GetDirectorySize(string path)

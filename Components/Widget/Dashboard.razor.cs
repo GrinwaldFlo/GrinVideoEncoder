@@ -21,7 +21,7 @@ public partial class Dashboard : IDisposable
 	[Inject] private CommunicationService Comm { get; set; } = null!;
 	[Inject] private IAppSettings AppSettings { get; set; } = null!;
 
-	private double CompressionRate => (_sumByteOriginal / (double)_sumByteCompressed - 1.0) * 100.0;
+	private double CompressionRate => ((_sumByteOriginal / (double)_sumByteCompressed) - 1.0) * 100.0;
 
 	public void Dispose()
 	{

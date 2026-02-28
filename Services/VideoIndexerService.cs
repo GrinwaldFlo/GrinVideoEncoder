@@ -1,6 +1,7 @@
 using System.Linq;
 using GrinVideoEncoder.Data;
 using GrinVideoEncoder.Models;
+using GrinVideoEncoder.Utils;
 using Microsoft.EntityFrameworkCore;
 
 namespace GrinVideoEncoder.Services;
@@ -35,11 +36,65 @@ public class VideoIndexerService : BackgroundService
 		await InitializeDatabase();
 		await CleanIgnored(stoppingToken);
 		await IndexExistingFiles(stoppingToken);
+		await UpdateMissingStatus(stoppingToken);
 
 		while (!stoppingToken.IsCancellationRequested)
 		{
 			await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
 		}
+	}
+
+	/// <summary>
+	/// Get all video in the database where <see cref="VideoFile.Sanity"/> is <see cref="SanityStatus.Unknown"/>
+	/// Use the function <see cref="MediaInfoExtensions.VideoIsSane(Xabe.FFmpeg.IMediaInfo)"/> to check if the video is sane.
+	/// If <see cref="VideoFile.Status"/> is: <see cref="CompressionStatus.Compressed"/>
+	/// => Use the flag <see cref="SanityStatus.EncodedKo"/> or <see cref="SanityStatus.EncodedKo"/>
+	/// => Otherwize use the flag <see cref="SanityStatus.OriginalOk"/> or <see cref="SanityStatus.OriginalKo"/>
+	/// </summary>
+	/// <param name="stoppingToken"></param>
+	/// <returns></returns>
+	private async Task UpdateMissingStatus(CancellationToken stoppingToken)
+	{
+		await using var context = new VideoDbContext();
+
+		var unknownFiles = await context.VideoFiles
+			.Where(v => v.Sanity == SanityStatus.Unknown)
+			.ToListAsync(stoppingToken);
+
+		if (unknownFiles.Count == 0)
+			return;
+
+		_log.Information("Updating sanity status for {Count} files", unknownFiles.Count);
+
+		uint cnt = 0;
+		foreach (var videoFile in unknownFiles)
+		{
+			if (stoppingToken.IsCancellationRequested)
+				break;
+
+			try
+			{
+				var mediaInfo = await VideoProcessorService.GetMediaInfo(videoFile.FullPath, stoppingToken);
+				bool isSane = mediaInfo?.VideoIsSane() is true;
+
+				videoFile.Sanity = videoFile.Status == CompressionStatus.Compressed
+					? (isSane ? SanityStatus.EncodedOk : SanityStatus.EncodedKo)
+					: (isSane ? SanityStatus.OriginalOk : SanityStatus.OriginalKo);
+			}
+			catch (Exception ex)
+			{
+				_log.Error(ex, "Failed to check sanity for {FilePath}", videoFile.FullPath);
+			}
+
+			if (cnt++ % 200 == 0)
+			{
+				await context.SaveChangesAsync(stoppingToken);
+				_log.Information("Updating sanity status {Count}/{Total} files", cnt, unknownFiles.Count);
+			}
+		}
+
+		await context.SaveChangesAsync(stoppingToken);
+		_log.Information("Sanity status update complete");
 	}
 
 	private async Task CleanIgnored(CancellationToken stoppingToken)
@@ -174,9 +229,7 @@ public class VideoIndexerService : BackgroundService
 	private bool IsEligibleFolder(string fullpath)
 	{
 		DirectoryInfo dir = new(fullpath);
-		if (_settings.IgnoreFolders.Contains(dir.Name, StringComparer.OrdinalIgnoreCase))
-			return false;
-		return true;
+		return !_settings.IgnoreFolders.Contains(dir.Name, StringComparer.OrdinalIgnoreCase);
 	}
 
 	private async Task IndexFile(string filePath)
@@ -213,7 +266,8 @@ public class VideoIndexerService : BackgroundService
 				Width = videoStream?.Width,
 				Height = videoStream?.Height,
 				LastModified = fileInfo.LastWriteTimeUtc,
-				Fps = videoStream?.Framerate
+				Fps = videoStream?.Framerate,
+				Sanity = mediaInfo?.VideoIsSane() is true ? SanityStatus.OriginalOk : SanityStatus.OriginalKo
 			};
 
 			context.VideoFiles.Add(videoFile);

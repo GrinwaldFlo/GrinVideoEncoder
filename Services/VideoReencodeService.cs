@@ -1,6 +1,6 @@
+using GrinVideoEncoder.Models;
 using System.Diagnostics;
 using System.Text;
-using GrinVideoEncoder.Models;
 
 namespace GrinVideoEncoder.Services;
 
@@ -30,7 +30,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 			await VideoDbContext.SetStatusAsync(processingVideos.Select(x => x.Id), CompressionStatus.ToProcess);
 		}
 
-		comm.AskTreatFiles = (await VideoDbContext.CountVideosWithStatusAsync(CompressionStatus.ToProcess)) > 0;
+		comm.AskTreatFiles = await VideoDbContext.CountVideosWithStatusAsync(CompressionStatus.ToProcess) > 0;
 
 		while (!stoppingToken.IsCancellationRequested)
 		{
@@ -83,10 +83,11 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 	{
 		if (comm.VideoProcessToken.Token.IsCancellationRequested)
 			return;
-		bool success = false;
+		bool success;
 		string tempDir = Path.GetFullPath(Path.Combine(settings.ProcessingPath, Guid.NewGuid().ToString()));
 		string tempInputPath = Path.Combine(tempDir, video.Filename);
 		string tempOutputPath = Path.Combine(tempDir, "compressed_" + video.Filename);
+		string tempOrigineOutputPath = Path.Combine(video.DirectoryPath, $"{video.Filename}-GrinVideoEncoder.tmp");
 		tempOutputPath = Path.ChangeExtension(tempOutputPath, MP4_EXT);
 
 		try
@@ -147,7 +148,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 		var originalLastWriteTime = new FileInfo(video.FullPath).LastWriteTime;
 		double fpsTol = 2;
 		bool hasFpsDiff = Math.Abs((originalFps ?? 0) - (compressedFps ?? 0)) > fpsTol;
-		(double min, double max) originalFpsMinMax = hasFpsDiff ? await videoProcessor.GetDiffFps(tempInputPath) : (0, 0);
+		(double min, double max) = hasFpsDiff ? await videoProcessor.GetDiffFps(tempInputPath) : (0, 0);
 
 		if (!success)
 		{
@@ -165,7 +166,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 		{
 			WriteError($"{video.FullPath} | Resolution has changed {originalPixels} / {compressedPixels}");
 		}
-		else if (hasFpsDiff && (originalFpsMinMax.max - originalFpsMinMax.min) < fpsTol)
+		else if (hasFpsDiff && max - min < fpsTol)
 		{
 			WriteError($"{video.FullPath} | FPS has changed {originalFps.Value:F2} / {compressedFps.Value:F2}");
 		}
@@ -179,28 +180,34 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 		{
 			try
 			{
-				if ((originalFpsMinMax.max - originalFpsMinMax.min) > fpsTol)
+				if (max - min > fpsTol)
 				{
-					log.Warning("{video} has originally a FPS between {min:F2} and {max:F2}", video.FullPath, originalFpsMinMax.min, originalFpsMinMax.max);
+					log.Warning("{video} has originally a FPS between {min:F2} and {max:F2}", video.FullPath, min, max);
 				}
 				string indexerPath = Path.GetFullPath(settings.IndexerPath);
 				string videoDirpath = Path.GetFullPath(video.DirectoryPath);
 				string relativePath = videoDirpath[indexerPath.Length..].TrimStart(Path.DirectorySeparatorChar);
-
-				// Step 4: Move original to trash (keep directory structure)
 				string trashDir = Path.GetFullPath(Path.Combine(settings.TrashPath, relativePath));
-				Directory.CreateDirectory(trashDir);
+
+				// Prepare trash
 				string trashPath = Path.Combine(trashDir, video.Filename);
+
 				comm.Status.Status.OnNext("Encode success, moving files...");
-				File.Move(tempInputPath, trashPath, true);
+
+				// Copy video to original location
+				File.Copy(tempOutputPath, tempOrigineOutputPath, true);
 				File.Delete(video.FullPath);
 				video.Filename = Path.ChangeExtension(video.Filename, MP4_EXT);
-				// Step 5: Move new file to original location
-				File.Copy(tempOutputPath, video.FullPath, true);
+				File.Move(tempOrigineOutputPath, video.FullPath, true);
 				RestoreDate(video.FullPath, originalCreationTime, originalLastWriteTime);
-				/// Temp dir is removed only if everything went well
+
+				// Trash and cleanup
+				Directory.CreateDirectory(trashDir);
+				File.Move(tempInputPath, trashPath, true);
 				Directory.Delete(tempDir, true);
-				// Step 6: Update indexation data
+
+				var newMediaInfo = await VideoProcessorService.GetMediaInfo(video.FullPath);
+				video.Sanity = newMediaInfo?.VideoIsSane() is true ? SanityStatus.EncodedOk : SanityStatus.EncodedKo;
 				video.FileSizeCompressed = new FileInfo(video.FullPath).Length;
 				video.Status = CompressionStatus.Compressed;
 				video.LastModified = DateTime.Now;
@@ -242,6 +249,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 			text.AppendLine($"{"Sample Rate",-25} | {originalInfo?.AudioStreams.FirstOrDefault()?.SampleRate} Hz {"",-19} | {compressedInfo?.AudioStreams.FirstOrDefault()?.SampleRate} Hz");
 			text.AppendLine($"{"File Size",-25} | {new FileInfo(tempInputPath).Length / (1024 * 1024.0):F2} MB {"",-18} | {new FileInfo(tempOutputPath).Length / (1024 * 1024.0):F2} MB");
 
+			video.EncodingErrorMessage = message;
 			File.WriteAllText(Path.Combine(tempDir, "error.txt"), text.ToString());
 		}
 	}
@@ -257,10 +265,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 
 	private bool ShouldShutdown()
 	{
-		if (!comm.ScheduledShutdownEnabled)
-			return false;
-
-		return DateTime.Now >= comm.ScheduledShutdownTime;
+		return comm.ScheduledShutdownEnabled && DateTime.Now >= comm.ScheduledShutdownTime;
 	}
 
 	private static void ExecuteShutdown()

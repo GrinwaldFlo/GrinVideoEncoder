@@ -11,11 +11,10 @@ public static class ConfigManager
 
 	public static List<string> GetAvailableConfigs()
 	{
-		var roamingRoot = AppSettings.GetRoamingRoot();
-		if (!Directory.Exists(roamingRoot))
-			return [];
-
-		return Directory.GetDirectories(roamingRoot)
+		string roamingRoot = AppSettings.GetRoamingRoot();
+		return !Directory.Exists(roamingRoot)
+			? []
+			: Directory.GetDirectories(roamingRoot)
 			.Select(Path.GetFileName)
 			.Where(name => !string.IsNullOrEmpty(name) && File.Exists(Path.Combine(roamingRoot, name!, "config.json")))
 			.Cast<string>()
@@ -41,7 +40,7 @@ public static class ConfigManager
 
 	public static void SaveConfig(AppSettings settings)
 	{
-		var dir = Path.GetDirectoryName(settings.ConfigFilePath)!;
+		string dir = Path.GetDirectoryName(settings.ConfigFilePath)!;
 		Directory.CreateDirectory(dir);
 
 		var json = JsonSerializer.Serialize(settings, _jsonOptions);
