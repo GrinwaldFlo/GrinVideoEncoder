@@ -61,7 +61,8 @@ Download the latest `GrinVideoEncoder-vX.X.X-win-x64-setup.exe` from the [Releas
 Download the latest `GrinVideoEncoder-vX.X.X-linux-x64.tar.gz` from the [Releases](https://github.com/GrinwaldFlo/GrinVideoEncoder/releases) page.
 
 ```bash
-tar -xzf GrinVideoEncoder-*-linux-x64.tar.gz -C /opt/GrinVideoEncoder
+sudo mkdir -p /opt/GrinVideoEncoder
+sudo tar -xzf GrinVideoEncoder-*-linux-x64.tar.gz -C /opt/GrinVideoEncoder
 cd /opt/GrinVideoEncoder
 ./GrinVideoEncoder
 ```
