@@ -43,4 +43,9 @@ public interface IAppSettings
 	double MinFileSizeMb { get; set; }
 	double MinFileAgeH { get; set; }
 	string? VideosGridSettings { get; set; }
+
+	/// <summary>
+	/// Port for the web UI. Default: 14563.
+	/// </summary>
+	int Port { get; set; }
 }
