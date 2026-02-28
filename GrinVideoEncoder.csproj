@@ -8,6 +8,10 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Tests" />
+  </ItemGroup>
+
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <NoWarn>1701;1702;S112;S6667</NoWarn>
     <DebugType>embedded</DebugType>
@@ -20,9 +24,13 @@
 
   <ItemGroup>
     <Compile Remove="publish\**" />
+    <Compile Remove="Tests\**" />
     <Content Remove="publish\**" />
+    <Content Remove="Tests\**" />
     <EmbeddedResource Remove="publish\**" />
+    <EmbeddedResource Remove="Tests\**" />
     <None Remove="publish\**" />
+    <None Remove="Tests\**" />
   </ItemGroup>
 
   <ItemGroup>

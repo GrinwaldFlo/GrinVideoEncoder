@@ -354,7 +354,7 @@ public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log,
 		log.Information("FFmpeg [{GpuType} GPU]: {Data}", gpuType, data);
 	}
 
-	private static TimeSpan? ParseFfmpegToTimeSpan(string? log)
+	internal static TimeSpan? ParseFfmpegToTimeSpan(string? log)
 	{
 		if (string.IsNullOrEmpty(log))
 			return null;
