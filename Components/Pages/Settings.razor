@@ -49,3 +49,24 @@
 		</RadzenStack>
 	</RadzenFieldset>
 </RadzenStack>
+
+<RadzenFieldset Text="Folder Maintenance" Style="margin-top:1rem;">
+	<RadzenStack Gap="0.5rem">
+		<RadzenButton Text="Refresh" Icon="refresh" ButtonStyle="ButtonStyle.Secondary" Click="RefreshFolders" Style="width:200px" />
+		<RadzenDataGrid TItem="GrinVideoEncoder.Models.FolderMaintenanceInfo" Data="_folderInfos" Density="Density.Compact" AllowSorting="false" Style="max-width:800px;">
+			<Columns>
+				<RadzenDataGridColumn Property="@nameof(GrinVideoEncoder.Models.FolderMaintenanceInfo.Name)" Title="Folder" Width="120px" />
+				<RadzenDataGridColumn Property="@nameof(GrinVideoEncoder.Models.FolderMaintenanceInfo.FileCount)" Title="Files" Width="80px" TextAlign="TextAlign.Right" />
+				<RadzenDataGridColumn Property="@nameof(GrinVideoEncoder.Models.FolderMaintenanceInfo.SizeFormatted)" Title="Size" Width="120px" TextAlign="TextAlign.Right" />
+				<RadzenDataGridColumn Title="Actions" Width="220px" Sortable="false" Filterable="false">
+					<Template Context="folder">
+						<RadzenStack Orientation="Orientation.Horizontal" Gap="0.25rem">
+							<RadzenButton Text="Browse" Icon="folder_open" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.ExtraSmall" Click="() => OpenFolder(folder.Path)" />
+							<RadzenButton Text="Clear" Icon="delete" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.ExtraSmall" Click="() => ClearFolder(folder)" Disabled="@(folder.FileCount == 0)" />
+						</RadzenStack>
+					</Template>
+				</RadzenDataGridColumn>
+			</Columns>
+		</RadzenDataGrid>
+	</RadzenStack>
+</RadzenFieldset>

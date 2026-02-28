@@ -86,6 +86,11 @@ VideoDbContext.SetPath(appSettings.DatabasePath);
 // --- Build the web application ---
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Logging.AddFilter("Microsoft.AspNetCore", LogLevel.Warning);
+builder.Logging.AddFilter("Microsoft.AspNetCore.Watch", LogLevel.Warning);
+builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
+builder.Logging.AddFilter("Microsoft.Hosting.Lifetime", LogLevel.Warning);
+
 builder.Services.AddDbContext<VideoDbContext>(options =>
 	options.UseSqlite($"Data Source={appSettings.DatabasePath};Cache=Shared"));
 
@@ -100,6 +105,7 @@ builder.Services.AddHostedService<PreventSleep>();
 builder.Services.AddHostedService<VideoReencodeService>();
 builder.Services.AddTransient<VideoProcessorService>();
 builder.Services.AddSingleton<CommunicationService>();
+builder.Services.AddSingleton<MaintenanceService>();
 builder.Services.AddRadzenComponents();
 
 builder.Services.AddRazorComponents()
@@ -133,5 +139,37 @@ using (var scope = app.Services.CreateScope())
 }
 
 StaticWebAssetsLoader.UseStaticWebAssets(app.Environment, app.Configuration);
+
+app.Lifetime.ApplicationStarted.Register(() =>
+{
+	var urls = app.Urls;
+
+	Console.ForegroundColor = ConsoleColor.Cyan;
+	Console.WriteLine();
+	Console.WriteLine("  ╔═══════════════════════════════════╗");
+	Console.WriteLine("  ║                                   ║");
+	Console.WriteLine("  ║    ██████  ██████  ██ ███    ██   ║");
+	Console.WriteLine("  ║   ██       ██   ██ ██ ████   ██   ║");
+	Console.WriteLine("  ║   ██   ███ ██████  ██ ██ ██  ██   ║");
+	Console.WriteLine("  ║   ██    ██ ██   ██ ██ ██  ██ ██   ║");
+	Console.WriteLine("  ║    ██████  ██   ██ ██ ██   ████   ║");
+	Console.WriteLine("  ║                                   ║");
+	Console.WriteLine("  ║       V I D E O   E N C O D E R   ║");
+	Console.WriteLine("  ║                                   ║");
+	Console.WriteLine("  ╚═══════════════════════════════════╝");
+	Console.ResetColor();
+	Console.WriteLine();
+
+	foreach (var url in urls)
+	{
+		Console.ForegroundColor = ConsoleColor.Green;
+		Console.Write(" -> Listening on: ");
+		Console.ForegroundColor = ConsoleColor.Yellow;
+		Console.WriteLine(url);
+	}
+
+	Console.ResetColor();
+	Console.WriteLine();
+});
 
 await app.RunAsync();

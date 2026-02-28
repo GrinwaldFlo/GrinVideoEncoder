@@ -1,28 +1,46 @@
 @page "/videos"
 @using GrinVideoEncoder.Models
 
-<RadzenDataGrid AllowFiltering="true" AllowColumnResize="true" AllowAlternatingRows="true" FilterMode="FilterMode.Simple"
-				AllowSorting="true" AllowVirtualization=true AllowPaging="false" PagerHorizontalAlign="HorizontalAlign.Left" ShowPagingSummary="true"
-				Data="@_videos" LogicalFilterOperator="LogicalFilterOperator.Or" SelectionMode="DataGridSelectionMode.Single"
-				Style="height:100%; flex: 1;" Density="Density.Compact" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
-				TItem="VideoFile"
-				CellContextMenu="OnContextMenu">
-	<Columns>
-		<RadzenDataGridColumn Property="@nameof(VideoFile.Status)" Title="Status" Frozen="true" Sortable="false" Width="150px" TextAlign="TextAlign.Center">
-			<Template Context="data">
-				<RadzenIcon title=@data.StatusDisplayName IconColor=@data.StatusColor Icon=@data.StatusIcon />
-			</Template>
-		</RadzenDataGridColumn>
-		<RadzenDataGridColumn Property="@nameof(VideoFile.Filename)" Title="Filename" MinWidth="100px" />
-		<RadzenDataGridColumn Property="@nameof(VideoFile.DirectoryPath)" Title="Directory" MinWidth="100px" />
-		<RadzenDataGridColumn Property="@nameof(VideoFile.FileSizeOriginalFormatted)" Title="Size ori." SortProperty="@nameof(VideoFile.FileSizeOriginal)" Width="100px" />
-		<RadzenDataGridColumn Property="@nameof(VideoFile.FileSizeCompressedFormatted)" Title="Size" SortProperty="@nameof(VideoFile.FileSizeCompressed)" Width="100px" />
-		<RadzenDataGridColumn Property="@nameof(VideoFile.DurationFormatted)" Title="Duration" SortProperty="@nameof(VideoFile.DurationSeconds)" Width="120px" />
-		<RadzenDataGridColumn Property="@nameof(VideoFile.Resolution)" Title="Resolution" SortProperty="@nameof(VideoFile.TotalPixels)" Width="100px" />
-		<RadzenDataGridColumn Property="@nameof(VideoFile.QualityRatio)" Title="Quality" FormatString="{0:F0}" Width="100px" />
-		<RadzenDataGridColumn Property="@nameof(VideoFile.CompressionFactor)" Title="Comp." FormatString="{0:F0}%" Width="100px" />
-		<RadzenDataGridColumn Property="@nameof(VideoFile.Fps)" Title="FPS" Width="100px" />
-		<RadzenDataGridColumn Property="@nameof(VideoFile.LastModified)" Title="Modif." Width="150px" />
-		<RadzenDataGridColumn Property="@nameof(VideoFile.Sanity)" Title="Sanity" Width="150px" />
-	</Columns>
-</RadzenDataGrid>
+<div style="display: flex; flex-direction: column; height: 100%;">
+
+
+	<RadzenDataGrid @bind-Settings="@GridSettings" AllowFiltering="true" AllowColumnPicking="true" AllowColumnResize="true" AllowAlternatingRows="true" FilterMode="FilterMode.Simple"
+					AllowSorting="true" AllowVirtualization=true AllowPaging="false" PagerHorizontalAlign="HorizontalAlign.Left" ShowPagingSummary="true"
+					Data="@_filteredVideos" LogicalFilterOperator="LogicalFilterOperator.Or" SelectionMode="DataGridSelectionMode.Single"
+					Style="height:100%; flex: 1; min-height: 0;" Density="Density.Compact" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
+					TItem="VideoFile"
+					CellContextMenu="OnContextMenu">
+		<HeaderTemplate>
+			<RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="4px" Style="padding: 4px 8px; flex-shrink: 0;">
+				@foreach (var s in _allStatuses)
+				{
+					var status = s.Status;
+					var active = _statusFilters.Contains(status);
+					<RadzenButton Icon="@s.Icon" title="@s.Tooltip" Size="ButtonSize.Small"
+								  ButtonStyle="@(active ? ButtonStyle.Primary : ButtonStyle.Light)"
+								  Style="@($"color: {(active ? "white" : s.Color)};")"
+								  Click="() => ToggleStatusFilter(status)" />
+				}
+			</RadzenStack>
+		</HeaderTemplate>
+		<Columns>
+			<RadzenDataGridColumn Property="@nameof(VideoFile.Status)" Title="" UniqueID="Status" Frozen="true" Sortable="false" Width="40px" TextAlign="TextAlign.Center"
+								  Filterable="false" Pickable="false">
+				<Template Context="data">
+					<RadzenIcon title=@data.StatusDisplayName IconColor=@data.StatusColor Icon=@data.StatusIcon />
+				</Template>
+			</RadzenDataGridColumn>
+			<RadzenDataGridColumn Property="@nameof(VideoFile.Filename)" Title="Filename" UniqueID="Filename" MinWidth="100px" />
+			<RadzenDataGridColumn Property="@nameof(VideoFile.DirectoryPath)" Title="Directory" UniqueID="DirectoryPath" MinWidth="100px" />
+			<RadzenDataGridColumn Property="@nameof(VideoFile.FileSizeOriginalFormatted)" Title="Size ori." UniqueID="FileSizeOriginalFormatted" SortProperty="@nameof(VideoFile.FileSizeOriginal)" Width="100px" />
+			<RadzenDataGridColumn Property="@nameof(VideoFile.FileSizeCompressedFormatted)" Title="Size" UniqueID="FileSizeCompressedFormatted" SortProperty="@nameof(VideoFile.FileSizeCompressed)" Width="100px" />
+			<RadzenDataGridColumn Property="@nameof(VideoFile.DurationFormatted)" Title="Duration" UniqueID="DurationFormatted" SortProperty="@nameof(VideoFile.DurationSeconds)" Width="120px" />
+			<RadzenDataGridColumn Property="@nameof(VideoFile.Resolution)" Title="Resolution" UniqueID="Resolution" SortProperty="@nameof(VideoFile.TotalPixels)" Width="100px" />
+			<RadzenDataGridColumn Property="@nameof(VideoFile.QualityRatio)" Title="Quality" UniqueID="QualityRatio" FormatString="{0:F0}" Width="100px" />
+			<RadzenDataGridColumn Property="@nameof(VideoFile.CompressionFactor)" Title="Comp." UniqueID="CompressionFactor" FormatString="{0:F0}%" Width="80px" />
+			<RadzenDataGridColumn Property="@nameof(VideoFile.Fps)" Title="FPS" UniqueID="Fps" Width="80px" />
+			<RadzenDataGridColumn Property="@nameof(VideoFile.LastModified)" Title="Modif." UniqueID="LastModified" Width="150px" />
+			<RadzenDataGridColumn Property="@nameof(VideoFile.Sanity)" Title="Sanity" UniqueID="Sanity" Width="150px" />
+		</Columns>
+	</RadzenDataGrid>
+</div>

@@ -1,39 +1,38 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace GrinVideoEncoder.Data.Migrations
+namespace GrinVideoEncoder.Data.Migrations;
+
+/// <inheritdoc />
+public partial class AddSanity : Migration
 {
-    /// <inheritdoc />
-    public partial class AddSanity : Migration
-    {
-        /// <inheritdoc />
-        protected override void Up(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.AddColumn<string>(
-                name: "EncodingErrorMessage",
-                table: "VideoFiles",
-                type: "TEXT",
-                nullable: true);
+	/// <inheritdoc />
+	protected override void Up(MigrationBuilder migrationBuilder)
+	{
+		migrationBuilder.AddColumn<string>(
+			name: "EncodingErrorMessage",
+			table: "VideoFiles",
+			type: "TEXT",
+			nullable: true);
 
-            migrationBuilder.AddColumn<int>(
-                name: "Sanity",
-                table: "VideoFiles",
-                type: "INTEGER",
-                nullable: false,
-                defaultValue: 0);
-        }
+		migrationBuilder.AddColumn<int>(
+			name: "Sanity",
+			table: "VideoFiles",
+			type: "INTEGER",
+			nullable: false,
+			defaultValue: 0);
+	}
 
-        /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.DropColumn(
-                name: "EncodingErrorMessage",
-                table: "VideoFiles");
+	/// <inheritdoc />
+	protected override void Down(MigrationBuilder migrationBuilder)
+	{
+		migrationBuilder.DropColumn(
+			name: "EncodingErrorMessage",
+			table: "VideoFiles");
 
-            migrationBuilder.DropColumn(
-                name: "Sanity",
-                table: "VideoFiles");
-        }
-    }
+		migrationBuilder.DropColumn(
+			name: "Sanity",
+			table: "VideoFiles");
+	}
 }

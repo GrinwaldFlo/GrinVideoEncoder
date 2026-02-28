@@ -65,6 +65,11 @@ public class AppSettings : IAppSettings
 	public double MinFileAgeH { get; set; } = 100;
 
 	/// <summary>
+	/// Serialized Radzen DataGridSettings for the Videos page.
+	/// </summary>
+	public string? VideosGridSettings { get; set; }
+
+	/// <summary>
 	/// Initializes computed paths based on ConfigName. Must be called after ConfigName is set.
 	/// </summary>
 	public void InitializePaths()

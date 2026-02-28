@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Reactive.Disposables;
+using System.Text.Json;
 using GrinVideoEncoder.Models;
 using Microsoft.AspNetCore.Components;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +17,23 @@ public partial class Videos : IDisposable
 	private bool _disposedValue;
 
 	private IList<VideoFile> _videos = [];
+	private IEnumerable<VideoFile> _filteredVideos => _statusFilters.Count == 0
+		? _videos
+		: _videos.Where(v => _statusFilters.Contains(v.Status));
+
+	private readonly HashSet<CompressionStatus> _statusFilters = [];
+
+	private static readonly (CompressionStatus Status, string Icon, string Tooltip, string Color)[] _allStatuses =
+	[
+		(CompressionStatus.Original, "backup", "Original", "#6c757d"),
+		(CompressionStatus.Compressed, "compress", "Compressed", "#28a745"),
+		(CompressionStatus.FailedToCompress, "error", "Failed", "#dc3545"),
+		(CompressionStatus.Bigger, "trending_up", "Bigger", "#ffc107"),
+		(CompressionStatus.Removed, "delete", "Removed", "#6c757d"),
+		(CompressionStatus.ToProcess, "schedule", "To Process", "#007bff"),
+		(CompressionStatus.Processing, "hourglass_bottom", "Processing", "#17a2b8"),
+		(CompressionStatus.Kept, "check_circle", "Kept", "#20c997"),
+	];
 
 	private enum CMenuAction
 	{
@@ -26,10 +44,54 @@ public partial class Videos : IDisposable
 		MarkKept
 	}
 
+	[Inject] private AppSettings AppSettings { get; set; } = null!;
 	[Inject] private CommunicationService Comm { get; set; } = null!;
 	[Inject] private ContextMenuService ContextMenu { get; set; } = null!;
 	[Inject] private IJSRuntime JS { get; set; } = null!;
 	[Inject] private NotificationService Notification { get; set; } = null!;
+
+	private void ToggleStatusFilter(CompressionStatus status)
+	{
+		if (!_statusFilters.Remove(status))
+			_statusFilters.Add(status);
+	}
+
+	private DataGridSettings? _gridSettings;
+	public DataGridSettings? GridSettings
+	{
+		get => _gridSettings;
+		set
+		{
+			if (_gridSettings != value)
+			{
+				_gridSettings = value;
+				InvokeAsync(SaveGridSettingsAsync);
+			}
+		}
+	}
+
+	private void LoadGridSettings()
+	{
+		var json = AppSettings.VideosGridSettings;
+		if (!string.IsNullOrEmpty(json))
+		{
+			try
+			{
+				_gridSettings = JsonSerializer.Deserialize<DataGridSettings>(json);
+			}
+			catch
+			{
+				_gridSettings = null;
+			}
+		}
+	}
+
+	private Task SaveGridSettingsAsync()
+	{
+		AppSettings.VideosGridSettings = JsonSerializer.Serialize(_gridSettings);
+		ConfigManager.SaveConfig(AppSettings);
+		return Task.CompletedTask;
+	}
 
 	public void Dispose()
 	{
@@ -54,6 +116,7 @@ public partial class Videos : IDisposable
 	protected override async Task OnInitializedAsync()
 	{
 		await base.OnInitializedAsync();
+		LoadGridSettings();
 		await RefreshDb();
 		_disposables.Add(Comm.Status.Filename.Subscribe(async _ => await RefreshDb()));
 	}

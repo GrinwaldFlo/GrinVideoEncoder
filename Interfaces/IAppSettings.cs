@@ -42,4 +42,5 @@ public interface IAppSettings
 	double EncodingThreshold { get; set; }
 	double MinFileSizeMb { get; set; }
 	double MinFileAgeH { get; set; }
+	string? VideosGridSettings { get; set; }
 }
