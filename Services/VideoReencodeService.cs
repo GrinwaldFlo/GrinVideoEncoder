@@ -54,7 +54,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 
 			if (ShouldShutdown())
 			{
-				log.Information("Scheduled shutdown time reached, shutting down the computer");
+				log.Information("Shutdown condition met, shutting down the computer");
 				comm.Status.Status.OnNext("Shutting down...");
 				ExecuteShutdown();
 				comm.AskClose = true;
