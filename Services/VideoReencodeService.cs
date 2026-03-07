@@ -8,33 +8,22 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 {
 	public const string MP4_EXT = ".mp4";
 
+	private bool IsReady()
+	{
+		return !string.IsNullOrEmpty(settings.IndexerPath) && Directory.Exists(settings.IndexerPath);
+	}
+
 	protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 	{
 		await Task.Delay(5000, stoppingToken);
-		if (string.IsNullOrEmpty(settings.IndexerPath))
-		{
-			log.Warning("IndexerPath is not configured. Video indexer service will not run.");
-			return;
-		}
 
-		if (!Directory.Exists(settings.IndexerPath))
-		{
-			log.Warning("IndexerPath '{IndexerPath}' does not exist. Video indexer service will not run.", settings.IndexerPath);
-			return;
-		}
-
-		var processingVideos = await VideoDbContext.GetVideosWithStatusAsync(CompressionStatus.Processing);
-		if (processingVideos.Count > 0)
-		{
-			log.Warning("{NbVideos} where in processing mode, re-set to ToProcess mode", processingVideos.Count);
-			await VideoDbContext.SetStatusAsync(processingVideos.Select(x => x.Id), CompressionStatus.ToProcess);
-		}
+		await ResetProcessStatus();
 
 		comm.AskTreatFiles = await VideoDbContext.CountVideosWithStatusAsync(CompressionStatus.ToProcess) > 0;
 
 		while (!stoppingToken.IsCancellationRequested)
 		{
-			if (!comm.Status.IsRunning.Value && comm.AskTreatFiles)
+			if (!comm.Status.IsRunning.Value && comm.AskTreatFiles && IsReady())
 			{
 				comm.PreventSleep = true;
 				await using var context = new VideoDbContext();
@@ -68,14 +57,24 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 				log.Information("Scheduled shutdown time reached, shutting down the computer");
 				comm.Status.Status.OnNext("Shutting down...");
 				ExecuteShutdown();
-				return;
+				comm.AskClose = true;
 			}
-			if(comm.AskClose)
+			if (comm.AskClose)
 			{
 				Environment.Exit(0);
 			}
 
 			Thread.Sleep(1000);
+		}
+	}
+
+	private async Task ResetProcessStatus()
+	{
+		var processingVideos = await VideoDbContext.GetVideosWithStatusAsync(CompressionStatus.Processing);
+		if (processingVideos.Count > 0)
+		{
+			log.Warning("{NbVideos} where in processing mode, re-set to ToProcess mode", processingVideos.Count);
+			await VideoDbContext.SetStatusAsync(processingVideos.Select(x => x.Id), CompressionStatus.ToProcess);
 		}
 	}
 
@@ -265,7 +264,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 
 	private bool ShouldShutdown()
 	{
-		return comm.ScheduledShutdownEnabled && DateTime.Now >= comm.ScheduledShutdownTime;
+		return (comm.ScheduledShutdownEnabled && DateTime.Now >= comm.ScheduledShutdownTime) || (!comm.AskTreatFiles && comm.ShutdownWhenDone);
 	}
 
 	private static void ExecuteShutdown()

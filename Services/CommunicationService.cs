@@ -25,6 +25,11 @@ public class CommunicationService
 
 	public bool AskClose { get; set; } = false;
 
+	/// <summary>
+	/// When enabled, the computer will shut down after the current job completes.
+	/// </summary>
+	public bool ShutdownWhenDone { get; set; }
+
 	public bool AskReIndex { get; set; } = false;
 
 }

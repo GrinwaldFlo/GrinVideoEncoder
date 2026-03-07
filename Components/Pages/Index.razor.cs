@@ -80,6 +80,15 @@ public partial class Index : IDisposable
 		await InvokeAsync(StateHasChanged);
 	}
 
+	private void OnShutdownWhenDone(bool enabled)
+	{
+		Comm.ShutdownWhenDone = enabled;
+		var message = Comm.ShutdownWhenDone
+			? "Computer will shut down when the current job is done"
+			: "Shutdown when done cancelled";
+		Notification.Notify(NotificationSeverity.Info, message);
+	}
+
 	private async Task OnShutdownToggled(bool enabled)
 	{
 		Comm.ScheduledShutdownEnabled = enabled;
