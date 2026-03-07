@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Sockets;
 using GrinVideoEncoder.Data;
 using GrinVideoEncoder.Services;
 
@@ -97,10 +99,39 @@ public static class ConfigurationSelector
 	private static void EnsureValidPort(AppSettings settings)
 	{
 		const int defaultPort = 14563;
-		if (settings.Port < 1 || settings.Port > 65535)
+		if (settings.Port is < 1 or > 65535)
 		{
 			Console.WriteLine($"Port {settings.Port} is out of range (1-65535). Using default port {defaultPort}.");
 			settings.Port = defaultPort;
+		}
+
+		int originalPort = settings.Port;
+		while (!IsPortAvailable(settings.Port))
+		{
+			settings.Port++;
+			if (settings.Port > 65535)
+			{
+				Console.WriteLine("No available port found.");
+				Environment.Exit(1);
+			}
+		}
+
+		if (settings.Port != originalPort)
+			Console.WriteLine($"Port {originalPort} is in use. Using port {settings.Port} instead.");
+	}
+
+	private static bool IsPortAvailable(int port)
+	{
+		try
+		{
+			using var listener = new TcpListener(IPAddress.Loopback, port);
+			listener.Start();
+			listener.Stop();
+			return true;
+		}
+		catch (SocketException)
+		{
+			return false;
 		}
 	}
 }
