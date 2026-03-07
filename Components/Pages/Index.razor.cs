@@ -106,7 +106,7 @@ public partial class Index : IDisposable
 			if (value < DateTime.Now.AddMinutes(10))
 			{ 
 				value = DateTime.Now.AddMinutes(10);
-				Notification.Notify(NotificationSeverity.Info, "Don't ask a date in the past");
+				Notification.Notify(NotificationSeverity.Info, "Shutdown time must be at least 10 minutes from now");
 			}
 			_shutdownTime = value;
 			Comm.ScheduledShutdownTime = value.Value;			
