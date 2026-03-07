@@ -10,20 +10,46 @@ public class VideoIndexerService : BackgroundService
 {
 	private readonly IAppSettings _settings;
 	private readonly LogMain _log;
+	private readonly CommunicationService _communication;
 	private readonly string _dbPath;
 
-	public VideoIndexerService(IAppSettings settings, LogMain log)
+	public VideoIndexerService(IAppSettings settings, LogMain log, CommunicationService communication)
 	{
 		_settings = settings;
 		_log = log;
+		_communication = communication;
 		_dbPath = _settings.DatabasePath;
 	}
 
 	protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 	{
+		_communication.AskReIndex = true;
+		await InitializeDatabase();
+
+		while (!stoppingToken.IsCancellationRequested)
+		{
+			try
+			{
+				if (_communication.AskReIndex)
+				{
+					_communication.AskReIndex = false;
+					await RunIndexing(stoppingToken);
+				}
+
+				await Task.Delay(1000, stoppingToken);
+			}
+			catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+			{
+				break;
+			}
+		}
+	}
+
+	private async Task RunIndexing(CancellationToken stoppingToken)
+	{
 		if (string.IsNullOrEmpty(_settings.IndexerPath))
 		{
-			_log.Warning("IndexerPath is not configured. Video indexer service will not run.");
+			_log.Warning("IndexerPath is not configured. Please update settings.");
 			return;
 		}
 
@@ -33,15 +59,9 @@ public class VideoIndexerService : BackgroundService
 			return;
 		}
 
-		await InitializeDatabase();
 		await CleanIgnored(stoppingToken);
 		await IndexExistingFiles(stoppingToken);
 		await UpdateMissingStatus(stoppingToken);
-
-		while (!stoppingToken.IsCancellationRequested)
-		{
-			await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
-		}
 	}
 
 	/// <summary>

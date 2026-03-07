@@ -10,12 +10,20 @@ public partial class Settings
 	[Inject] private AppSettings AppSettings { get; set; } = null!;
 	[Inject] private MaintenanceService Maintenance { get; set; } = null!;
 
+	[Inject] private CommunicationService Communication { get; set; } = null!;
+
 	private string _statusMessage = string.Empty;
 	private BadgeStyle _statusStyle = BadgeStyle.Success;
 	private List<FolderMaintenanceInfo> _folderInfos = [];
+	private string _originalIndexerPath = string.Empty;
+	private List<string> _originalExtensions = [];
+	private List<string> _originalIgnoreFolders = [];
 
 	protected override void OnInitialized()
 	{
+		_originalIndexerPath = AppSettings.IndexerPath;
+		_originalExtensions = [.. AppSettings.VideoExtensions];
+		_originalIgnoreFolders = [.. AppSettings.IgnoreFolders];
 		RefreshFolders();
 	}
 
@@ -38,6 +46,22 @@ public partial class Settings
 		try
 		{
 			ConfigManager.SaveConfig(AppSettings);
+
+			bool indexerPathChanged = !string.Equals(_originalIndexerPath, AppSettings.IndexerPath, StringComparison.Ordinal);
+			bool extensionsChanged = !_originalExtensions.SequenceEqual(AppSettings.VideoExtensions);
+			bool ignoreFoldersChanged = !_originalIgnoreFolders.SequenceEqual(AppSettings.IgnoreFolders);
+
+			if (indexerPathChanged || extensionsChanged || ignoreFoldersChanged)
+			{
+				Communication.AskReIndex = true;
+				_originalIndexerPath = AppSettings.IndexerPath;
+				_originalExtensions = [.. AppSettings.VideoExtensions];
+				_originalIgnoreFolders = [.. AppSettings.IgnoreFolders];
+				_statusMessage = "Settings saved — indexing will restart";
+				_statusStyle = BadgeStyle.Info;
+				return;
+			}
+
 			_statusMessage = "Settings saved";
 			_statusStyle = BadgeStyle.Success;
 		}

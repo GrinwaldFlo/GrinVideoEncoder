@@ -25,4 +25,6 @@ public class CommunicationService
 
 	public bool AskClose { get; set; } = false;
 
+	public bool AskReIndex { get; set; } = false;
+
 }

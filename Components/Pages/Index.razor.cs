@@ -94,6 +94,11 @@ public partial class Index : IDisposable
 	{
 		if (value.HasValue)
 		{
+			if (value < DateTime.Now.AddMinutes(10))
+			{ 
+				value = DateTime.Now.AddMinutes(10);
+				Notification.Notify(NotificationSeverity.Info, "Don't ask a date in the past");
+			}
 			_shutdownTime = value;
 			Comm.ScheduledShutdownTime = value.Value;			
 		}
