@@ -48,12 +48,13 @@ public class ConfigManagerTests : IDisposable
 	public void LoadConfig_ReturnsCorrectSettings()
 	{
 		var configName = UniqueConfigName();
+		var indexerPath = Path.Combine(Path.GetTempPath(), "Videos");
 		var original = new AppSettings
 		{
 			ConfigName = configName,
 			QualityLevel = 20,
 			ForceCpu = true,
-			IndexerPath = @"C:\Videos",
+			IndexerPath = indexerPath,
 			EncodingThreshold = 500,
 			MinFileSizeMb = 50,
 			MinFileAgeH = 24
@@ -66,7 +67,7 @@ public class ConfigManagerTests : IDisposable
 		Assert.Equal(configName, loaded.ConfigName);
 		Assert.Equal(20, loaded.QualityLevel);
 		Assert.True(loaded.ForceCpu);
-		Assert.Equal(@"C:\Videos", loaded.IndexerPath);
+		Assert.Equal(Path.GetFullPath(indexerPath), loaded.IndexerPath);
 		Assert.Equal(500, loaded.EncodingThreshold);
 		Assert.Equal(50, loaded.MinFileSizeMb);
 		Assert.Equal(24, loaded.MinFileAgeH);
