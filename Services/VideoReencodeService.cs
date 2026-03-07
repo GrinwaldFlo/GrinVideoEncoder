@@ -64,7 +64,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 				Environment.Exit(0);
 			}
 
-			Thread.Sleep(1000);
+			await Task.Delay(1000, stoppingToken);
 		}
 	}
 

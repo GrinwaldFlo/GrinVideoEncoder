@@ -77,7 +77,16 @@ public static class PipelineConfiguration
 			var firstUrl = urls.FirstOrDefault();
 			if (firstUrl is not null)
 			{
-				Process.Start(new ProcessStartInfo(firstUrl) { UseShellExecute = true });
+				try
+				{
+					Process.Start(new ProcessStartInfo(firstUrl) { UseShellExecute = true });
+				}
+				catch (Exception ex)
+				{
+					Console.ForegroundColor = ConsoleColor.Red;
+					Console.WriteLine($"Failed to open browser for URL '{firstUrl}': {ex.Message}");
+					Console.ResetColor();
+				}
 			}
 		});
 	}

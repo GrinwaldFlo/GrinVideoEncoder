@@ -40,7 +40,8 @@ public static class ConfigManager
 
 	public static void SaveConfig(AppSettings settings)
 	{
-		settings.IndexerPath = Path.GetFullPath(settings.IndexerPath);
+		if(!string.IsNullOrEmpty(settings.IndexerPath))
+			settings.IndexerPath = Path.GetFullPath(settings.IndexerPath);
 		string dir = Path.GetDirectoryName(settings.ConfigFilePath)!;
 		Directory.CreateDirectory(dir);
 
