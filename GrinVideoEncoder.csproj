@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -6,6 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationIcon>installer\setup-icon.ico</ApplicationIcon>
+    <PackageIcon>favicon.png</PackageIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -34,7 +36,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="installer\setup-icon.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include=".github\workflows\ci-publish.yml" />
+    <None Include="wwwroot\favicon.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
   </ItemGroup>
 
   <ItemGroup>
@@ -43,7 +53,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.3" />
-    <PackageReference Include="Radzen.Blazor" Version="9.0.6" />
+    <PackageReference Include="Radzen.Blazor" Version="9.0.8" />
     <PackageReference Include="Serilog" Version="4.3.1" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />

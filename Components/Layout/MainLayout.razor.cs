@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Reactive.Disposables;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Routing;
 
 namespace GrinVideoEncoder.Components.Layout;
 
@@ -10,6 +11,8 @@ public partial class MainLayout : IDisposable
 	[Inject] private CommunicationService Comm { get; set; } = null!;
 	[Inject] private LogMain LogMain { get; set; } = null!;
 	[Inject] private LogFfmpeg LogFfmpeg { get; set; } = null!;
+	[Inject] private AppSettings AppSettings { get; set; } = null!;
+	[Inject] private NavigationManager Navigation { get; set; } = null!;
 
 	private bool _disposedValue;
 
@@ -24,6 +27,14 @@ public partial class MainLayout : IDisposable
 	protected override async Task OnInitializedAsync()
 	{
 		await base.OnInitializedAsync();
+
+		var currentRelativePath = Navigation.ToBaseRelativePath(Navigation.Uri);
+
+		if (string.IsNullOrEmpty(AppSettings.IndexerPath)
+			&& !currentRelativePath.EndsWith("settings", StringComparison.OrdinalIgnoreCase))
+		{
+			Navigation.NavigateTo("/settings", forceLoad: false);
+		}
 
 		_disposables.Add(Comm.Status.IsRunning.Subscribe(async _ => await Refresh()));
 		_disposables.Add(Comm.Status.Status.Subscribe(async _ => await Refresh()));

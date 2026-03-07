@@ -113,9 +113,9 @@ public class AppSettingsTests
 		Assert.False(settings.ForceCpu);
 		Assert.Equal(23, settings.QualityLevel);
 		Assert.Equal(string.Empty, settings.IndexerPath);
-		Assert.Equal(900, settings.EncodingThreshold);
-		Assert.Equal(100, settings.MinFileSizeMb);
-		Assert.Equal(100, settings.MinFileAgeH);
+		Assert.Equal(500, settings.EncodingThreshold);
+		Assert.Equal(10, settings.MinFileSizeMb);
+		Assert.Equal(1, settings.MinFileAgeH);
 		Assert.Null(settings.VideosGridSettings);
 	}
 

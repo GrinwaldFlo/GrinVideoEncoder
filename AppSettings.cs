@@ -58,11 +58,11 @@ public class AppSettings : IAppSettings
 
 	public List<string> IgnoreFolders { get; set; } = [];
 
-	public double EncodingThreshold { get; set; } = 900;
+	public double EncodingThreshold { get; set; } = 500;
 
-	public double MinFileSizeMb { get; set; } = 100;
+	public double MinFileSizeMb { get; set; } = 10;
 
-	public double MinFileAgeH { get; set; } = 100;
+	public double MinFileAgeH { get; set; } = 1;
 
 	/// <inheritdoc/>
 	public int Port { get; set; } = 14563;

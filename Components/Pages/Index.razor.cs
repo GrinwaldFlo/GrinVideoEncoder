@@ -80,6 +80,15 @@ public partial class Index : IDisposable
 		await InvokeAsync(StateHasChanged);
 	}
 
+	private void OnShutdownWhenDone(bool enabled)
+	{
+		Comm.ShutdownWhenDone = enabled;
+		var message = Comm.ShutdownWhenDone
+			? "Computer will shut down when the current job is done"
+			: "Shutdown when done cancelled";
+		Notification.Notify(NotificationSeverity.Info, message);
+	}
+
 	private async Task OnShutdownToggled(bool enabled)
 	{
 		Comm.ScheduledShutdownEnabled = enabled;
@@ -94,6 +103,11 @@ public partial class Index : IDisposable
 	{
 		if (value.HasValue)
 		{
+			if (value < DateTime.Now.AddMinutes(10))
+			{ 
+				value = DateTime.Now.AddMinutes(10);
+				Notification.Notify(NotificationSeverity.Info, "Shutdown time must be at least 10 minutes from now");
+			}
 			_shutdownTime = value;
 			Comm.ScheduledShutdownTime = value.Value;			
 		}
