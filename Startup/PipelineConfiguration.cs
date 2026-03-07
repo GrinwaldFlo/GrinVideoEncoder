@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using GrinVideoEncoder.Components;
 using GrinVideoEncoder.Data;
 using GrinVideoEncoder.Services;
@@ -72,6 +73,12 @@ public static class PipelineConfiguration
 
 			Console.ResetColor();
 			Console.WriteLine();
+
+			var firstUrl = urls.FirstOrDefault();
+			if (firstUrl is not null)
+			{
+				Process.Start(new ProcessStartInfo(firstUrl) { UseShellExecute = true });
+			}
 		});
 	}
 }
