@@ -28,8 +28,10 @@ public partial class MainLayout : IDisposable
 	{
 		await base.OnInitializedAsync();
 
+		var currentRelativePath = Navigation.ToBaseRelativePath(Navigation.Uri);
+
 		if (string.IsNullOrEmpty(AppSettings.IndexerPath)
-			&& !Navigation.Uri.EndsWith("/settings", StringComparison.OrdinalIgnoreCase))
+			&& !currentRelativePath.EndsWith("settings", StringComparison.OrdinalIgnoreCase))
 		{
 			Navigation.NavigateTo("/settings", forceLoad: false);
 		}
