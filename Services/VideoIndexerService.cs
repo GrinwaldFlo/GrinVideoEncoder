@@ -249,7 +249,22 @@ public class VideoIndexerService : BackgroundService
 				.FirstOrDefaultAsync(v => v.DirectoryPath == fileInfo.DirectoryName && v.Filename == fileInfo.Name);
 
 			if (existingFile != null)
+				return;
+
+			// Detect moved file: same filename and size but at a different path where the old file no longer exists
+			var movedFile = await DetectMovedFile(context, fileInfo);
+			if (movedFile != null)
 			{
+				string oldPath = movedFile.FullPath;
+				movedFile.DirectoryPath = fileInfo.DirectoryName ?? string.Empty;
+				movedFile.LastModified = fileInfo.LastWriteTimeUtc;
+				await context.SaveChangesAsync();
+
+				_filesInDb.Remove(oldPath.ToLower());
+				_filesInDb.Add(filePath.ToLower());
+
+				_log.Information("Detected moved video: {Filename} from {OldPath} to {NewPath}",
+					fileInfo.Name, oldPath, movedFile.FullPath);
 				return;
 			}
 
@@ -285,6 +300,31 @@ public class VideoIndexerService : BackgroundService
 		{
 			_log.Error(ex, "Failed to index file: {FilePath}", filePath);
 		}
+	}
+
+	/// <summary>
+	/// Detects if a file was moved from another directory by looking for an existing database entry
+	/// with the same filename and file size where the original file no longer exists on disk.
+	/// Returns the matched entry if exactly one candidate is found, otherwise null.
+	/// </summary>
+	private static async Task<VideoFile?> DetectMovedFile(VideoDbContext context, FileInfo fileInfo)
+	{
+		var candidates = await context.VideoFiles
+			.Where(v => v.Filename == fileInfo.Name
+				&& (v.FileSizeOriginal == fileInfo.Length || v.FileSizeCompressed == fileInfo.Length)
+				&& v.DirectoryPath != fileInfo.DirectoryName)
+			.ToListAsync();
+
+		if (candidates.Count == 0)
+			return null;
+
+		// Keep only candidates whose original file no longer exists on disk
+		var movedCandidates = candidates
+			.Where(v => !File.Exists(v.FullPath))
+			.ToList();
+
+		// Only treat as a move if there is exactly one unambiguous match
+		return movedCandidates.Count == 1 ? movedCandidates[0] : null;
 	}
 
 	private bool IsEligibleVideoFile(string filePath)
