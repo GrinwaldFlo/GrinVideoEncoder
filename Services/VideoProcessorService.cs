@@ -1,5 +1,7 @@
-using System.Management;
 using GrinVideoEncoder.Utils;
+using Microsoft.VisualBasic;
+using System.Diagnostics;
+using System.Management;
 using Xabe.FFmpeg;
 using Xabe.FFmpeg.Downloader;
 using static GrinVideoEncoder.Utils.GpuDetector;
@@ -8,6 +10,7 @@ namespace GrinVideoEncoder.Services;
 
 public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log, CommunicationService comm)
 {
+	int _errorCounter = 0;
 	public bool ReadyToProcess { get; private set; } = true;
 
 	/// <summary>
@@ -79,6 +82,48 @@ public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log,
 	}
 
 	/// <summary>
+	/// Downloads FFmpeg if not exists
+	/// </summary>
+	/// <returns></returns>
+	public async Task FfmpegDownload()
+	{
+		string ffmpegPath = Path.Combine(settings.TempPath, "ffmpeg");
+		if (!Directory.Exists(ffmpegPath))
+		{
+			Directory.CreateDirectory(ffmpegPath);
+		}
+		FFmpeg.SetExecutablesPath(ffmpegPath);
+		await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official, ffmpegPath);
+
+		string exePath = Path.Combine(ffmpegPath, "ffmpeg.exe");
+
+		try
+		{
+			using var process = new System.Diagnostics.Process();
+			process.StartInfo.FileName = exePath;
+			process.StartInfo.Arguments = "-version";
+			process.StartInfo.UseShellExecute = false;
+			process.StartInfo.RedirectStandardOutput = true;
+			process.StartInfo.CreateNoWindow = true;
+			process.Start();
+			string output = await process.StandardOutput.ReadToEndAsync();
+			await process.WaitForExitAsync();
+
+			if (process.ExitCode != 0)
+			{
+				throw new Exception($"FFmpeg exited with code {process.ExitCode}");
+			}
+
+			log.Information("FFmpeg version: {Version}", output.Split('\n').FirstOrDefault()?.Trim());
+		}
+		catch (Exception ex)
+		{
+			log.Fatal(ex, "FFmpeg is not working properly. Application will close.");
+			Environment.Exit(1);
+		}
+	}
+
+	/// <summary>
 	/// Analyse the video to find the max and min FPS during the video.
 	/// </summary>
 	/// <param name="videoPath">Path to the video file to analyze.</param>
@@ -139,49 +184,6 @@ public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log,
 
 		return (minFps, maxFps);
 	}
-
-	/// <summary>
-	/// Downloads FFmpeg if not exists
-	/// </summary>
-	/// <returns></returns>
-	public async Task FfmpegDownload()
-	{
-		string ffmpegPath = Path.Combine(settings.TempPath, "ffmpeg");
-		if (!Directory.Exists(ffmpegPath))
-		{
-			Directory.CreateDirectory(ffmpegPath);
-		}
-		FFmpeg.SetExecutablesPath(ffmpegPath);
-		await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official, ffmpegPath);
-
-		string exePath = Path.Combine(ffmpegPath, "ffmpeg.exe");
-
-		try
-		{
-			using var process = new System.Diagnostics.Process();
-			process.StartInfo.FileName = exePath;
-			process.StartInfo.Arguments = "-version";
-			process.StartInfo.UseShellExecute = false;
-			process.StartInfo.RedirectStandardOutput = true;
-			process.StartInfo.CreateNoWindow = true;
-			process.Start();
-			string output = await process.StandardOutput.ReadToEndAsync();
-			await process.WaitForExitAsync();
-
-			if (process.ExitCode != 0)
-			{
-				throw new Exception($"FFmpeg exited with code {process.ExitCode}");
-			}
-
-			log.Information("FFmpeg version: {Version}", output.Split('\n').FirstOrDefault()?.Trim());
-		}
-		catch (Exception ex)
-		{
-			log.Fatal(ex, "FFmpeg is not working properly. Application will close.");
-			Environment.Exit(1);
-		}
-	}
-
 	public async Task ProcessVideo(string filePath, CommunicationService communication)
 	{
 		var token = communication.VideoProcessToken.Token;
@@ -222,6 +224,27 @@ public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log,
 		}
 	}
 
+	internal static TimeSpan? ParseFfmpegToTimeSpan(string? log)
+	{
+		if (string.IsNullOrEmpty(log))
+			return null;
+
+		var timeMatch = FindTimeSpandRegex().Match(log);
+		if (timeMatch.Success &&
+			int.TryParse(timeMatch.Groups[1].Value, out int hours) &&
+			int.TryParse(timeMatch.Groups[2].Value, out int minutes) &&
+			double.TryParse(timeMatch.Groups[3].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double seconds))
+		{
+			int wholeSeconds = (int)seconds;
+			int milliseconds = (int)((seconds - wholeSeconds) * 1000);
+			return new TimeSpan(0, hours, minutes, wholeSeconds, milliseconds);
+		}
+		return null;
+	}
+
+	[System.Text.RegularExpressions.GeneratedRegex(@"time=(\d{2}):(\d{2}):(\d{2}\.\d{2})")]
+	private static partial System.Text.RegularExpressions.Regex FindTimeSpandRegex();
+
 	/// <summary>
 	/// Waits for the file to be ready for reading.
 	/// </summary>
@@ -257,6 +280,31 @@ public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log,
 		if (File.Exists(file.ProcessingPath))
 		{
 			File.Move(file.ProcessingPath, file.FailedPath, true);
+		}
+	}
+
+	private void OnNewDataReceived(GpuVendor gpuType, TimeSpan totalTime, string? data)
+	{
+		var curTimespan = ParseFfmpegToTimeSpan(data);
+		if (curTimespan == null)
+		{
+			comm.Status.EncodingPercent.OnNext(null);
+		}
+		else
+		{
+			comm.Status.EncodingPercent.OnNext(curTimespan.Value.TotalSeconds / totalTime.TotalSeconds * 100);
+		}
+		log.Information("FFmpeg [{GpuType} GPU]: {Data}", gpuType, data);
+
+		if (data != null && data.Contains("STSC entry", StringComparison.OrdinalIgnoreCase) && data.Contains("is invalid", StringComparison.OrdinalIgnoreCase))
+		{
+			_errorCounter++;
+
+			//if (_errorCounter > 100)
+			//{
+			//	log.Error("FFmpeg conversion error detected: {Data}", data);
+			//	throw new Exception(data);
+			//}
 		}
 	}
 
@@ -336,42 +384,20 @@ public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log,
 
 		conversion.SetOutput(outputPath);
 
-		conversion.OnDataReceived += (sender, args) => OnNewDataReceivd(gpuType, mediaInfo.Duration, args.Data);
-		await conversion.Start(token);
-	}
-
-	private void OnNewDataReceivd(GpuVendor gpuType, TimeSpan totalTime, string? data)
-	{
-		var curTimespan = ParseFfmpegToTimeSpan(data);
-		if (curTimespan == null)
+		_errorCounter = 0;
+		void handler(object sender, DataReceivedEventArgs args)
 		{
-			comm.Status.EncodingPercent.OnNext(null);
+			OnNewDataReceived(gpuType, mediaInfo.Duration, args.Data);
 		}
-		else
+
+		conversion.OnDataReceived += handler;
+		try
 		{
-			comm.Status.EncodingPercent.OnNext(curTimespan.Value.TotalSeconds / totalTime.TotalSeconds * 100);
+			await conversion.Start(token);
 		}
-		log.Information("FFmpeg [{GpuType} GPU]: {Data}", gpuType, data);
-	}
-
-	internal static TimeSpan? ParseFfmpegToTimeSpan(string? log)
-	{
-		if (string.IsNullOrEmpty(log))
-			return null;
-
-		var timeMatch = FindTimeSpandRegex().Match(log);
-		if (timeMatch.Success &&
-			int.TryParse(timeMatch.Groups[1].Value, out int hours) &&
-			int.TryParse(timeMatch.Groups[2].Value, out int minutes) &&
-			double.TryParse(timeMatch.Groups[3].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double seconds))
+		finally
 		{
-			int wholeSeconds = (int)seconds;
-			int milliseconds = (int)((seconds - wholeSeconds) * 1000);
-			return new TimeSpan(0, hours, minutes, wholeSeconds, milliseconds);
+			conversion.OnDataReceived -= handler;
 		}
-		return null;
 	}
-
-	[System.Text.RegularExpressions.GeneratedRegex(@"time=(\d{2}):(\d{2}):(\d{2}\.\d{2})")]
-	private static partial System.Text.RegularExpressions.Regex FindTimeSpandRegex();
 }
