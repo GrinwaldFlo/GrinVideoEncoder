@@ -11,6 +11,7 @@ namespace GrinVideoEncoder.Services;
 public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log, CommunicationService comm)
 {
 	int _errorCounter = 0;
+	string _failReason = string.Empty;
 	public bool ReadyToProcess { get; private set; } = true;
 
 	/// <summary>
@@ -184,9 +185,10 @@ public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log,
 
 		return (minFps, maxFps);
 	}
+
 	public async Task ProcessVideo(string filePath, CommunicationService communication)
 	{
-		var token = communication.VideoProcessToken.Token;
+		var appCancelToken = communication.VideoProcessToken.Token;
 		communication.Status.Filename.OnNext(filePath);
 		if (!ReadyToProcess)
 			return;
@@ -201,7 +203,7 @@ public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log,
 		{
 			await PrepareProcessing(filename);
 
-			await EncodeVideo(filename.ProcessingPath, filename.TempPath, token);
+			await EncodeVideo(filename.ProcessingPath, filename.TempPath, appCancelToken);
 
 			FinalizeProcessing(filename);
 			communication.Status.Status.OnNext("Done");
@@ -283,7 +285,7 @@ public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log,
 		}
 	}
 
-	private void OnNewDataReceived(GpuVendor gpuType, TimeSpan totalTime, string? data)
+	private void OnNewDataReceived(GpuVendor gpuType, TimeSpan totalTime, string? data, CancellationTokenSource videoCts)
 	{
 		var curTimespan = ParseFfmpegToTimeSpan(data);
 		if (curTimespan == null)
@@ -300,11 +302,12 @@ public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log,
 		{
 			_errorCounter++;
 
-			//if (_errorCounter > 100)
-			//{
-			//	log.Error("FFmpeg conversion error detected: {Data}", data);
-			//	throw new Exception(data);
-			//}
+			if (_errorCounter > 100)
+			{
+				_failReason = $"FFmpeg conversion error detected: {data}";
+				log.Error("FFmpeg conversion error detected: {Data}", data);
+				videoCts.Cancel();
+			}
 		}
 	}
 
@@ -318,7 +321,7 @@ public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log,
 	}
 
 	private async Task ProcessWithGpu(IMediaInfo? mediaInfo, string outputPath,
-				GpuVendor gpuType, CancellationToken token)
+				GpuVendor gpuType, CancellationToken applicationCt)
 	{
 		if (mediaInfo == null)
 			throw new Exception("Failed to get media info");
@@ -384,16 +387,25 @@ public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log,
 
 		conversion.SetOutput(outputPath);
 
+		CancellationTokenSource videoCts = new();
+		using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(applicationCt, videoCts.Token);
+		var combinedToken = linkedCts.Token;
+
 		_errorCounter = 0;
+		_failReason = string.Empty;
 		void handler(object sender, DataReceivedEventArgs args)
 		{
-			OnNewDataReceived(gpuType, mediaInfo.Duration, args.Data);
+			OnNewDataReceived(gpuType, mediaInfo.Duration, args.Data, videoCts);
 		}
 
 		conversion.OnDataReceived += handler;
 		try
 		{
-			await conversion.Start(token);
+			await conversion.Start(combinedToken);
+		}
+		catch(Exception)
+		{
+			throw new Exception(_failReason);
 		}
 		finally
 		{
