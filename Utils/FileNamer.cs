@@ -1,4 +1,4 @@
-﻿namespace GrinVideoEncoder.Utils;
+namespace GrinVideoEncoder.Utils;
 
 /// <summary>
 /// Generates all full paths for a processed file.
@@ -28,6 +28,7 @@ public class FileNamer
 	/// Path to the file that failed to process.
 	/// </summary>
 	public string FailedPath { get; private set; }
+
 	/// <summary>
 	/// Orignal file path.
 	/// </summary>
@@ -47,6 +48,7 @@ public class FileNamer
 	/// Orignal file while being processed.
 	/// </summary>
 	public string ProcessingPath { get; private set; }
+
 	/// <summary>
 	/// Path to the stats file.
 	/// </summary>
@@ -56,9 +58,16 @@ public class FileNamer
 	/// Partial file while being processed.
 	/// </summary>
 	public string TempPath { get; private set; }
+
 	public string TempFirstPassPath { get; private set; }
+
 	/// <summary>
 	/// Orginal processed file after successful processing.
 	/// </summary>
 	public string TrashPath { get; private set; }
+
+	public string Dump()
+	{
+		return System.Text.Json.JsonSerializer.Serialize(this);
+	}
 }

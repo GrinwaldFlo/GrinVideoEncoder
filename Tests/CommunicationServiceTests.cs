@@ -21,9 +21,10 @@ public class CommunicationServiceTests
 	[Fact]
 	public void PreventSleep_CanBeToggled()
 	{
-		var service = new CommunicationService();
-
-		service.PreventSleep = true;
+		var service = new CommunicationService
+		{
+			PreventSleep = true
+		};
 		Assert.True(service.PreventSleep);
 
 		service.PreventSleep = false;
@@ -33,9 +34,10 @@ public class CommunicationServiceTests
 	[Fact]
 	public void AskTreatFiles_CanBeToggled()
 	{
-		var service = new CommunicationService();
-
-		service.AskTreatFiles = true;
+		var service = new CommunicationService
+		{
+			AskTreatFiles = true
+		};
 		Assert.True(service.AskTreatFiles);
 
 		service.AskTreatFiles = false;
@@ -45,9 +47,10 @@ public class CommunicationServiceTests
 	[Fact]
 	public void ScheduledShutdownEnabled_CanBeToggled()
 	{
-		var service = new CommunicationService();
-
-		service.ScheduledShutdownEnabled = true;
+		var service = new CommunicationService
+		{
+			ScheduledShutdownEnabled = true
+		};
 		Assert.True(service.ScheduledShutdownEnabled);
 
 		service.ScheduledShutdownEnabled = false;
@@ -58,7 +61,7 @@ public class CommunicationServiceTests
 	public void ScheduledShutdownTime_CanBeSet()
 	{
 		var service = new CommunicationService();
-		var expected = new DateTime(2025, 12, 31, 23, 59, 59);
+		var expected = new DateTime(2025, 12, 31, 23, 59, 59, DateTimeKind.Local);
 
 		service.ScheduledShutdownTime = expected;
 
@@ -108,9 +111,10 @@ public class CommunicationServiceTests
 	[Fact]
 	public void AskClose_CanBeToggled()
 	{
-		var service = new CommunicationService();
-
-		service.AskClose = true;
+		var service = new CommunicationService
+		{
+			AskClose = true
+		};
 		Assert.True(service.AskClose);
 
 		service.AskClose = false;
