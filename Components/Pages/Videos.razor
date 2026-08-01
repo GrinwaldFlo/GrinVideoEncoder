@@ -6,7 +6,7 @@
 
 	<RadzenDataGrid @bind-Settings="@GridSettings" AllowFiltering="true" AllowColumnPicking="true" AllowColumnResize="true" AllowAlternatingRows="true" FilterMode="FilterMode.Simple"
 					AllowSorting="true" AllowVirtualization=true AllowPaging="false" PagerHorizontalAlign="HorizontalAlign.Left" ShowPagingSummary="true"
-					Data="@_filteredVideos" LogicalFilterOperator="LogicalFilterOperator.Or" SelectionMode="DataGridSelectionMode.Single"
+					Data="@FilteredVideos" LogicalFilterOperator="LogicalFilterOperator.Or" SelectionMode="DataGridSelectionMode.Single"
 					Style="height:100%; flex: 1; min-height: 0;" Density="Density.Compact" FilterCaseSensitivity="FilterCaseSensitivity.CaseInsensitive"
 					TItem="VideoFile"
 					CellContextMenu="OnContextMenu">

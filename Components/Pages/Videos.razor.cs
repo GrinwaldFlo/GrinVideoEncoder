@@ -17,7 +17,8 @@ public partial class Videos : IDisposable
 	private bool _disposedValue;
 
 	private IList<VideoFile> _videos = [];
-	private IEnumerable<VideoFile> _filteredVideos => _statusFilters.Count == 0
+
+	private IEnumerable<VideoFile> FilteredVideos => _statusFilters.Count == 0
 		? _videos
 		: _videos.Where(v => _statusFilters.Contains(v.Status));
 
@@ -57,6 +58,7 @@ public partial class Videos : IDisposable
 	}
 
 	private DataGridSettings? _gridSettings;
+
 	public DataGridSettings? GridSettings
 	{
 		get => _gridSettings;
@@ -139,6 +141,7 @@ public partial class Videos : IDisposable
 					Notification.Notify(NotificationSeverity.Error, ex.Message);
 				}
 				break;
+
 			case CMenuAction.CopyDir:
 				try
 				{
@@ -174,6 +177,7 @@ public partial class Videos : IDisposable
 				await VideoDbContext.ResetErrorAsync(video.Id);
 				await RefreshDb();
 				break;
+
 			case CMenuAction.MarkKept:
 				await VideoDbContext.MarkKept(video.Id);
 				await RefreshDb();
@@ -195,7 +199,7 @@ public partial class Videos : IDisposable
 				new ContextMenuItem(){ Text = "Play", Value = CMenuAction.Play, Icon = "play_arrow" },
 				new ContextMenuItem(){ Text = "Copy dir", Value = CMenuAction.CopyDir, Icon = "folder_copy" },
 				new ContextMenuItem(){ Text = "Open dir", Value = CMenuAction.OpenDir, Icon = "folder_open" },
-				new ContextMenuItem(){ Text = "Reset status", Value = CMenuAction.ResetError, Icon = "reset_shutter_speed" , 
+				new ContextMenuItem(){ Text = "Reset status", Value = CMenuAction.ResetError, Icon = "reset_shutter_speed" ,
 					Disabled = curItem.Status is not CompressionStatus.FailedToCompress and not CompressionStatus.Processing and not CompressionStatus.Bigger},
 				new ContextMenuItem(){ Text = "Keep original", Value = CMenuAction.MarkKept, Icon = "check" ,
 					Disabled = curItem.Status is not CompressionStatus.Original},

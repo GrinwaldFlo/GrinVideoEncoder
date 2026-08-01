@@ -105,7 +105,7 @@ public class VideoProcessingStatusTests
 		var status = new VideoProcessingStatus();
 		var received = new List<string>();
 
-		using var sub = status.Filename.Subscribe(v => received.Add(v));
+		using var sub = status.Filename.Subscribe(received.Add);
 		status.Filename.OnNext("file1.mp4");
 		status.Filename.OnNext("file2.mkv");
 
@@ -122,7 +122,7 @@ public class VideoProcessingStatusTests
 		var status = new VideoProcessingStatus();
 		var received = new List<double?>();
 
-		using var sub = status.EncodingPercent.Subscribe(v => received.Add(v));
+		using var sub = status.EncodingPercent.Subscribe(received.Add);
 		status.EncodingPercent.OnNext(0.0);
 		status.EncodingPercent.OnNext(50.0);
 		status.EncodingPercent.OnNext(100.0);

@@ -1,12 +1,14 @@
-using System.Management;
 using GrinVideoEncoder.Utils;
+using Microsoft.VisualBasic;
+using System.Diagnostics;
+using System.Management;
 using Xabe.FFmpeg;
 using Xabe.FFmpeg.Downloader;
 using static GrinVideoEncoder.Utils.GpuDetector;
 
 namespace GrinVideoEncoder.Services;
 
-public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log, CommunicationService comm)
+public class VideoProcessorService(IAppSettings settings, LogFfmpeg log, CommunicationService comm)
 {
 	public bool ReadyToProcess { get; private set; } = true;
 
@@ -55,26 +57,45 @@ public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log,
 		return false;
 	}
 
-	public async Task EncodeVideo(string inputFilename, string outputFilename, CancellationToken token = default)
+	/// <summary>
+	/// Downloads FFmpeg if not exists
+	/// </summary>
+	/// <returns></returns>
+	public async Task FfmpegDownload()
 	{
-		var gpuType = GpuDetector.DetectGpuVendor();
-		var mediaInfo = await FFmpeg.GetMediaInfo(inputFilename, token);
-
-		if (!settings.ForceCpu && gpuType is GpuDetector.GpuVendor.Nvidia or GpuDetector.GpuVendor.AMD)
+		string ffmpegPath = Path.Combine(settings.TempPath, "ffmpeg");
+		if (!Directory.Exists(ffmpegPath))
 		{
-			try
-			{
-				await ProcessWithGpu(mediaInfo, outputFilename, gpuType, token);
-			}
-			catch (Exception ex) when (ex.Message.Contains("encoder") || ex.Message.Contains("GPU"))
-			{
-				log.Warning("{GpuType} GPU encoding failed. Falling back to CPU encoding. Error: {ErrorMessage}", gpuType, ex.Message);
-				throw new Exception("No GPU found");
-			}
+			Directory.CreateDirectory(ffmpegPath);
 		}
-		else
+		FFmpeg.SetExecutablesPath(ffmpegPath);
+		await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official, ffmpegPath);
+
+		string exePath = Path.Combine(ffmpegPath, "ffmpeg.exe");
+
+		try
 		{
-			throw new Exception("No GPU found");
+			using var process = new System.Diagnostics.Process();
+			process.StartInfo.FileName = exePath;
+			process.StartInfo.Arguments = "-version";
+			process.StartInfo.UseShellExecute = false;
+			process.StartInfo.RedirectStandardOutput = true;
+			process.StartInfo.CreateNoWindow = true;
+			process.Start();
+			string output = await process.StandardOutput.ReadToEndAsync();
+			await process.WaitForExitAsync();
+
+			if (process.ExitCode != 0)
+			{
+				throw new Exception($"FFmpeg exited with code {process.ExitCode}");
+			}
+
+			log.Information("FFmpeg version: {Version}", output.Split('\n').FirstOrDefault()?.Trim());
+		}
+		catch (Exception ex)
+		{
+			log.Fatal(ex, "FFmpeg is not working properly. Application will close.");
+			Environment.Exit(1);
 		}
 	}
 
@@ -140,51 +161,8 @@ public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log,
 		return (minFps, maxFps);
 	}
 
-	/// <summary>
-	/// Downloads FFmpeg if not exists
-	/// </summary>
-	/// <returns></returns>
-	public async Task FfmpegDownload()
-	{
-		string ffmpegPath = Path.Combine(settings.TempPath, "ffmpeg");
-		if (!Directory.Exists(ffmpegPath))
-		{
-			Directory.CreateDirectory(ffmpegPath);
-		}
-		FFmpeg.SetExecutablesPath(ffmpegPath);
-		await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official, ffmpegPath);
-
-		string exePath = Path.Combine(ffmpegPath, "ffmpeg.exe");
-
-		try
-		{
-			using var process = new System.Diagnostics.Process();
-			process.StartInfo.FileName = exePath;
-			process.StartInfo.Arguments = "-version";
-			process.StartInfo.UseShellExecute = false;
-			process.StartInfo.RedirectStandardOutput = true;
-			process.StartInfo.CreateNoWindow = true;
-			process.Start();
-			string output = await process.StandardOutput.ReadToEndAsync();
-			await process.WaitForExitAsync();
-
-			if (process.ExitCode != 0)
-			{
-				throw new Exception($"FFmpeg exited with code {process.ExitCode}");
-			}
-
-			log.Information("FFmpeg version: {Version}", output.Split('\n').FirstOrDefault()?.Trim());
-		}
-		catch (Exception ex)
-		{
-			log.Fatal(ex, "FFmpeg is not working properly. Application will close.");
-			Environment.Exit(1);
-		}
-	}
-
 	public async Task ProcessVideo(string filePath, CommunicationService communication)
 	{
-		var token = communication.VideoProcessToken.Token;
 		communication.Status.Filename.OnNext(filePath);
 		if (!ReadyToProcess)
 			return;
@@ -197,23 +175,31 @@ public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log,
 		FileNamer filename = new(settings, filePath);
 		try
 		{
-			await PrepareProcessing(filename);
+			bool prepareSuccess = await PrepareProcessing(filename);
 
-			await EncodeVideo(filename.ProcessingPath, filename.TempPath, token);
+			if (!prepareSuccess)
+				return;
 
-			FinalizeProcessing(filename);
-			communication.Status.Status.OnNext("Done");
-		}
-		catch (OperationCanceledException)
-		{
-			HandleProcessingError(filename);
-			communication.Status.Status.OnNext($"Cancelled");
-			log.Warning("Encoding cancelled {InputPath}", filename.InputPath);
-		}
-		catch (Exception ex)
-		{
-			HandleProcessingError(filename, ex);
-			communication.Status.Status.OnNext($"Failed");
+			var encoder = new VideoEncoder(settings.ForceCpu, settings.QualityLevel, log, comm.Status.EncodingPercent, communication.VideoProcessToken.Token);
+
+			var encodeResult = await encoder.EncodeVideoAsync(filename.ProcessingPath, filename.TempPath);
+
+			if (encodeResult.Success)
+			{
+				FinalizeProcessing(filename);
+				communication.Status.Status.OnNext("Done");
+			}
+			else if (encodeResult.Reason == VideoEncoder.ResultReason.Canceled)
+			{
+				HandleProcessingError(filename);
+				communication.Status.Status.OnNext($"Cancelled");
+				log.Warning("Encoding cancelled {InputPath}", filename.InputPath);
+			}
+			else
+			{
+				HandleProcessingError(filename, encodeResult.ErrorMessage);
+				communication.Status.Status.OnNext($"Failed");
+			}
 		}
 		finally
 		{
@@ -246,10 +232,10 @@ public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log,
 		log.Information("Successfully processed {FinalPath}", filename.OutputPath);
 	}
 
-	private void HandleProcessingError(FileNamer file, Exception? ex = null)
+	private void HandleProcessingError(FileNamer file, string errorMessage = "")
 	{
-		if (ex != null)
-			log.Error(ex, "Processing error");
+		if (!string.IsNullOrEmpty(errorMessage))
+			log.Error(errorMessage, "Processing error");
 		if (File.Exists(file.TempPath))
 			File.Delete(file.TempPath);
 		if (File.Exists(file.TempFirstPassPath))
@@ -260,118 +246,22 @@ public partial class VideoProcessorService(IAppSettings settings, LogFfmpeg log,
 		}
 	}
 
-	private async Task PrepareProcessing(FileNamer file)
+	private async Task<bool> PrepareProcessing(FileNamer file)
 	{
-		log.Information("Waiting {FilePath} is ready", file.InputPath);
-		await WaitForFile(file.InputPath, CancellationToken.None);
+		try
+		{
+			log.Information("Waiting {FilePath} is ready", file.InputPath);
+			await WaitForFile(file.InputPath, CancellationToken.None);
 
-		File.Move(file.InputPath, file.ProcessingPath);
-		log.Information("Started processing {ProcessingPath}", file.ProcessingPath);
+			File.Move(file.InputPath, file.ProcessingPath);
+			log.Information("Started processing {ProcessingPath}", file.ProcessingPath);
+
+			return true;
+		}
+		catch (Exception ex)
+		{
+			log.Error(ex, file.Dump());
+		}
+		return false;
 	}
-
-	private async Task ProcessWithGpu(IMediaInfo? mediaInfo, string outputPath,
-				GpuVendor gpuType, CancellationToken token)
-	{
-		if (mediaInfo == null)
-			throw new Exception("Failed to get media info");
-		var videoStream = mediaInfo.VideoStreams.FirstOrDefault() ?? throw new Exception("No video stream found");
-		var audioStreams = mediaInfo.AudioStreams;
-		var subtitleStreams = mediaInfo.SubtitleStreams;
-
-		if (!outputPath.EndsWith(".mp4"))
-			throw new Exception("Please provide an mp4 file");
-
-		var conversion = FFmpeg.Conversions.New()
-			.AddStream(videoStream);
-
-		// Add GPU-specific parameters for constant quality encoding
-		switch (gpuType)
-		{
-			case GpuVendor.Nvidia:
-				conversion
-					.AddParameter("-c:v hevc_nvenc")
-					.AddParameter("-preset p7")
-					.AddParameter("-rc vbr")
-					.AddParameter($"-cq {settings.QualityLevel}")
-					.AddParameter("-rc-lookahead 32")
-					.AddParameter("-spatial-aq 1")
-					.AddParameter("-temporal-aq 1")
-					.AddParameter("-g 60")
-					.AddParameter("-keyint_min 30")
-					.AddParameter("-gpu 0");
-				break;
-
-			case GpuVendor.AMD:
-				conversion
-					.AddParameter("-c:v hevc_amf")
-					.AddParameter("-rc cqp")
-					.AddParameter($"-qp_i {settings.QualityLevel}")
-					.AddParameter($"-qp_p {settings.QualityLevel}")
-					.AddParameter("-g 60")
-					.AddParameter("-keyint_min 30")
-					.AddParameter("-pix_fmt yuv420p")
-					.AddParameter("-tag:v hvc1");
-				break;
-
-			default:
-				throw new ArgumentException("Unsupported GPU type");
-		}
-
-		// Process Audio
-		foreach (var audioStream in audioStreams)
-		{
-			conversion.AddStream(audioStream);
-		}
-
-		// Process Subtitles
-		if (subtitleStreams != null && subtitleStreams.Any())
-		{
-			foreach (var subStream in subtitleStreams)
-			{
-				conversion.AddStream(subStream);
-			}
-			// Force conversion to MP4-compatible subtitle format
-			conversion.AddParameter("-c:s mov_text");
-		}
-
-		conversion.SetOutput(outputPath);
-
-		conversion.OnDataReceived += (sender, args) => OnNewDataReceivd(gpuType, mediaInfo.Duration, args.Data);
-		await conversion.Start(token);
-	}
-
-	private void OnNewDataReceivd(GpuVendor gpuType, TimeSpan totalTime, string? data)
-	{
-		var curTimespan = ParseFfmpegToTimeSpan(data);
-		if (curTimespan == null)
-		{
-			comm.Status.EncodingPercent.OnNext(null);
-		}
-		else
-		{
-			comm.Status.EncodingPercent.OnNext(curTimespan.Value.TotalSeconds / totalTime.TotalSeconds * 100);
-		}
-		log.Information("FFmpeg [{GpuType} GPU]: {Data}", gpuType, data);
-	}
-
-	internal static TimeSpan? ParseFfmpegToTimeSpan(string? log)
-	{
-		if (string.IsNullOrEmpty(log))
-			return null;
-
-		var timeMatch = FindTimeSpandRegex().Match(log);
-		if (timeMatch.Success &&
-			int.TryParse(timeMatch.Groups[1].Value, out int hours) &&
-			int.TryParse(timeMatch.Groups[2].Value, out int minutes) &&
-			double.TryParse(timeMatch.Groups[3].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double seconds))
-		{
-			int wholeSeconds = (int)seconds;
-			int milliseconds = (int)((seconds - wholeSeconds) * 1000);
-			return new TimeSpan(0, hours, minutes, wholeSeconds, milliseconds);
-		}
-		return null;
-	}
-
-	[System.Text.RegularExpressions.GeneratedRegex(@"time=(\d{2}):(\d{2}):(\d{2}\.\d{2})")]
-	private static partial System.Text.RegularExpressions.Regex FindTimeSpandRegex();
 }

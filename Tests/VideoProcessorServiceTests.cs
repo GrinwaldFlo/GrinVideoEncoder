@@ -1,4 +1,5 @@
 using GrinVideoEncoder.Services;
+using GrinVideoEncoder.Utils;
 
 namespace Tests;
 
@@ -9,7 +10,7 @@ public class VideoProcessorServiceTests
 	{
 		string log = "frame=  123 fps= 30 q=28.0 size=   1024kB time=00:01:30.50 bitrate= 2000kbps";
 
-		var result = VideoProcessorService.ParseFfmpegToTimeSpan(log);
+		var result = VideoEncoder.ParseFfmpegToTimeSpan(log);
 
 		Assert.NotNull(result);
 		Assert.Equal(0, result.Value.Hours);
@@ -23,7 +24,7 @@ public class VideoProcessorServiceTests
 	{
 		string log = "frame= 5000 fps= 60 q=25.0 size=  50000kB time=02:15:45.00 bitrate= 5000kbps";
 
-		var result = VideoProcessorService.ParseFfmpegToTimeSpan(log);
+		var result = VideoEncoder.ParseFfmpegToTimeSpan(log);
 
 		Assert.NotNull(result);
 		Assert.Equal(2, result.Value.Hours);
@@ -37,7 +38,7 @@ public class VideoProcessorServiceTests
 	{
 		string log = "time=00:00:00.00";
 
-		var result = VideoProcessorService.ParseFfmpegToTimeSpan(log);
+		var result = VideoEncoder.ParseFfmpegToTimeSpan(log);
 
 		Assert.NotNull(result);
 		Assert.Equal(TimeSpan.Zero, result.Value);
@@ -46,7 +47,7 @@ public class VideoProcessorServiceTests
 	[Fact]
 	public void ParseFfmpegToTimeSpan_NullInput_ReturnsNull()
 	{
-		var result = VideoProcessorService.ParseFfmpegToTimeSpan(null);
+		var result = VideoEncoder.ParseFfmpegToTimeSpan(null);
 
 		Assert.Null(result);
 	}
@@ -54,7 +55,7 @@ public class VideoProcessorServiceTests
 	[Fact]
 	public void ParseFfmpegToTimeSpan_EmptyString_ReturnsNull()
 	{
-		var result = VideoProcessorService.ParseFfmpegToTimeSpan("");
+		var result = VideoEncoder.ParseFfmpegToTimeSpan("");
 
 		Assert.Null(result);
 	}
@@ -64,7 +65,7 @@ public class VideoProcessorServiceTests
 	{
 		string log = "frame=  123 fps= 30 q=28.0 size=   1024kB bitrate= 2000kbps";
 
-		var result = VideoProcessorService.ParseFfmpegToTimeSpan(log);
+		var result = VideoEncoder.ParseFfmpegToTimeSpan(log);
 
 		Assert.Null(result);
 	}
@@ -74,7 +75,7 @@ public class VideoProcessorServiceTests
 	{
 		string log = "time=invalid";
 
-		var result = VideoProcessorService.ParseFfmpegToTimeSpan(log);
+		var result = VideoEncoder.ParseFfmpegToTimeSpan(log);
 
 		Assert.Null(result);
 	}
@@ -84,7 +85,7 @@ public class VideoProcessorServiceTests
 	{
 		string log = "time=00:00:10.75";
 
-		var result = VideoProcessorService.ParseFfmpegToTimeSpan(log);
+		var result = VideoEncoder.ParseFfmpegToTimeSpan(log);
 
 		Assert.NotNull(result);
 		Assert.Equal(0, result.Value.Hours);
@@ -98,7 +99,7 @@ public class VideoProcessorServiceTests
 	{
 		string log = "frame= 1000 fps=120 q=23.0 Lsize=   25600kB time=00:05:33.24 bitrate= 630.2kbits/s speed=4.01x";
 
-		var result = VideoProcessorService.ParseFfmpegToTimeSpan(log);
+		var result = VideoEncoder.ParseFfmpegToTimeSpan(log);
 
 		Assert.NotNull(result);
 		Assert.Equal(0, result.Value.Hours);
@@ -112,7 +113,7 @@ public class VideoProcessorServiceTests
 	{
 		string log = "time=99:59:59.99";
 
-		var result = VideoProcessorService.ParseFfmpegToTimeSpan(log);
+		var result = VideoEncoder.ParseFfmpegToTimeSpan(log);
 
 		Assert.NotNull(result);
 		Assert.Equal(99, (int)result.Value.TotalHours);
@@ -126,7 +127,7 @@ public class VideoProcessorServiceTests
 	{
 		string log = "time=01:30:00.00";
 
-		var result = VideoProcessorService.ParseFfmpegToTimeSpan(log);
+		var result = VideoEncoder.ParseFfmpegToTimeSpan(log);
 
 		Assert.NotNull(result);
 		Assert.Equal(5400.0, result.Value.TotalSeconds);
@@ -137,7 +138,7 @@ public class VideoProcessorServiceTests
 	{
 		string log = "time=00:01:00.00 time=00:02:00.00";
 
-		var result = VideoProcessorService.ParseFfmpegToTimeSpan(log);
+		var result = VideoEncoder.ParseFfmpegToTimeSpan(log);
 
 		Assert.NotNull(result);
 		Assert.Equal(1, result.Value.Minutes);
@@ -146,7 +147,7 @@ public class VideoProcessorServiceTests
 	[Fact]
 	public void ParseFfmpegToTimeSpan_WhitespaceOnly_ReturnsNull()
 	{
-		var result = VideoProcessorService.ParseFfmpegToTimeSpan("   ");
+		var result = VideoEncoder.ParseFfmpegToTimeSpan("   ");
 
 		Assert.Null(result);
 	}
@@ -154,7 +155,7 @@ public class VideoProcessorServiceTests
 	[Fact]
 	public void ParseFfmpegToTimeSpan_PartialTimeFormat_ReturnsNull()
 	{
-		var result = VideoProcessorService.ParseFfmpegToTimeSpan("time=00:01");
+		var result = VideoEncoder.ParseFfmpegToTimeSpan("time=00:01");
 
 		Assert.Null(result);
 	}

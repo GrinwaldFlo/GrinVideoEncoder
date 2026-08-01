@@ -4,9 +4,10 @@ using System.Text;
 
 namespace GrinVideoEncoder.Services;
 
-public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSettings settings, LogMain log, CommunicationService comm) : BackgroundService
+public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSettings settings, LogMain log, LogFfmpeg logFfmpeg, CommunicationService comm) : BackgroundService
 {
 	public const string MP4_EXT = ".mp4";
+	private const string STR_ERROR = "Error";
 
 	private bool IsReady()
 	{
@@ -82,7 +83,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 	{
 		if (comm.VideoProcessToken.Token.IsCancellationRequested)
 			return;
-		bool success;
+
 		string tempDir = Path.GetFullPath(Path.Combine(settings.ProcessingPath, Guid.NewGuid().ToString()));
 		string tempInputPath = Path.Combine(tempDir, video.Filename);
 		string tempOutputPath = Path.Combine(tempDir, "compressed_" + video.Filename);
@@ -93,29 +94,8 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 		{
 			Directory.CreateDirectory(tempDir);
 			comm.Status.Status.OnNext($"Copying {video.FileSizeOriginalFormatted} ...");
-			File.Copy(video.FullPath, tempInputPath, true);
+			await GlobUtils.CopyFileWithProgressAsync(video.FullPath, tempInputPath, comm.Status.EncodingPercent, comm.VideoProcessToken.Token);
 			comm.Status.Status.OnNext("Encoding...");
-		}
-		catch (Exception ex)
-		{
-			video.Status = CompressionStatus.FailedToCompress;
-			comm.Status.Status.OnNext("Error");
-			log.Error("Prepare video failed", ex, video);
-			Directory.Delete(tempDir, true);
-			return;
-		}
-
-		try
-		{
-			await videoProcessor.EncodeVideo(tempInputPath, tempOutputPath, comm.VideoProcessToken.Token);
-			success = true;
-		}
-		catch (TaskCanceledException)
-		{
-			video.Status = CompressionStatus.Original;
-			log.Warning("Encoding canceled", video);
-			Directory.Delete(tempDir, true);
-			return;
 		}
 		catch (OperationCanceledException)
 		{
@@ -127,9 +107,29 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 		catch (Exception ex)
 		{
 			video.Status = CompressionStatus.FailedToCompress;
-			comm.Status.Status.OnNext("Error");
-			log.Error("Encoding failed", ex, video);
-			await File.WriteAllTextAsync(Path.Combine(tempDir, "error.txt"), $"{ex}");
+			comm.Status.Status.OnNext(STR_ERROR);
+			log.Error("Prepare video failed", ex, video);
+			Directory.Delete(tempDir, true);
+			return;
+		}
+
+		var encoder = new VideoEncoder(settings.ForceCpu, settings.QualityLevel, logFfmpeg, comm.Status.EncodingPercent, comm.VideoProcessToken.Token);
+
+		var result = await encoder.EncodeVideoAsync(tempInputPath, tempOutputPath);
+
+		if (result.Reason == VideoEncoder.ResultReason.Canceled)
+		{
+			video.Status = CompressionStatus.Original;
+			log.Warning("Encoding canceled", video);
+			Directory.Delete(tempDir, true);
+			return;
+		}
+		else if (!result.Success)
+		{
+			video.Status = CompressionStatus.FailedToCompress;
+			comm.Status.Status.OnNext(STR_ERROR);
+			log.Error("Encoding failed", result.ErrorMessage, video);
+			await File.WriteAllTextAsync(Path.Combine(tempDir, "error.txt"), result.Dump());
 			return;
 		}
 
@@ -149,7 +149,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 		bool hasFpsDiff = Math.Abs((originalFps ?? 0) - (compressedFps ?? 0)) > fpsTol;
 		(double min, double max) = hasFpsDiff ? await videoProcessor.GetDiffFps(tempInputPath) : (0, 0);
 
-		if (!success)
+		if (!result.Success)
 		{
 			WriteError($"{video.FullPath} | Failed to encode");
 		}
@@ -194,7 +194,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 				comm.Status.Status.OnNext("Encode success, moving files...");
 
 				// Copy video to original location
-				File.Copy(tempOutputPath, tempOrigineOutputPath, true);
+				await GlobUtils.CopyFileWithProgressAsync(tempOutputPath, tempOrigineOutputPath, comm.Status.EncodingPercent, CancellationToken.None); // Do not allow to cancel while all is done
 				File.Delete(video.FullPath);
 				video.Filename = Path.ChangeExtension(video.Filename, MP4_EXT);
 				File.Move(tempOrigineOutputPath, video.FullPath, true);
@@ -210,13 +210,13 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 				video.FileSizeCompressed = new FileInfo(video.FullPath).Length;
 				video.Status = CompressionStatus.Compressed;
 				video.LastModified = DateTime.Now;
-				log.Information("New video successfully encoded {Video}, reduced of {CompressionFactor:F1}%", video.FullPath, video.CompressionFactor ?? 0d);
+				log.Information("New video successfully encoded {Video}, reduced of {CompressionFactor:F1}%", video.FullPath, Math.Round(video.CompressionFactor ?? 0d, 2));
 				comm.Status.Status.OnNext("Done");
 			}
 			catch (Exception ex)
 			{
 				video.Status = CompressionStatus.FailedToCompress;
-				comm.Status.Status.OnNext("Error");
+				comm.Status.Status.OnNext(STR_ERROR);
 				log.Error("Encoding failed", ex, video);
 			}
 		}
@@ -224,7 +224,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 		void WriteError(string message)
 		{
 			video.Status = CompressionStatus.FailedToCompress;
-			comm.Status.Status.OnNext("Error");
+			comm.Status.Status.OnNext(STR_ERROR);
 
 			log.Error(message);
 
