@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace GrinVideoEncoder.Utils;
@@ -8,7 +9,9 @@ namespace GrinVideoEncoder.Utils;
 /// </summary>
 public static class PowerManagement
 {
+	private static readonly Lock SyncRoot = new();
 	private static IntPtr _powerRequest = IntPtr.Zero;
+	private static Process? _linuxInhibitProcess;
 
 	/// <summary>
 	/// Power request type for system required (prevents sleep).
@@ -26,12 +29,22 @@ public static class PowerManagement
 	/// </summary>
 	public static void AllowSleep()
 	{
-		if (_powerRequest != IntPtr.Zero)
+		lock (SyncRoot)
 		{
-			PowerClearRequest(_powerRequest, POWER_REQUEST_TYPE_SYSTEM_REQUIRED);
-			PowerClearRequest(_powerRequest, POWER_REQUEST_TYPE_DISPLAY_REQUIRED);
-			CloseHandle(_powerRequest);
-			_powerRequest = IntPtr.Zero;
+			if (OperatingSystem.IsWindows())
+			{
+				if (_powerRequest != IntPtr.Zero)
+				{
+					PowerClearRequest(_powerRequest, POWER_REQUEST_TYPE_SYSTEM_REQUIRED);
+					PowerClearRequest(_powerRequest, POWER_REQUEST_TYPE_DISPLAY_REQUIRED);
+					CloseHandle(_powerRequest);
+					_powerRequest = IntPtr.Zero;
+				}
+			}
+			else if (OperatingSystem.IsLinux())
+			{
+				StopLinuxInhibit();
+			}
 		}
 	}
 
@@ -42,14 +55,24 @@ public static class PowerManagement
 	/// </summary>
 	public static void PreventSleep()
 	{
-		if (_powerRequest == IntPtr.Zero)
+		lock (SyncRoot)
 		{
-			_powerRequest = PowerCreateRequest(new ReasonContext { Reason = 0 });
-		}
+			if (OperatingSystem.IsWindows())
+			{
+				if (_powerRequest == IntPtr.Zero)
+				{
+					_powerRequest = PowerCreateRequest(new ReasonContext { Reason = 0 });
+				}
 
-		if (_powerRequest != IntPtr.Zero)
-		{
-			PowerSetRequest(_powerRequest, POWER_REQUEST_TYPE_SYSTEM_REQUIRED);
+				if (_powerRequest != IntPtr.Zero)
+				{
+					PowerSetRequest(_powerRequest, POWER_REQUEST_TYPE_SYSTEM_REQUIRED);
+				}
+			}
+			else if (OperatingSystem.IsLinux())
+			{
+				StartLinuxInhibit();
+			}
 		}
 	}
 
@@ -60,15 +83,77 @@ public static class PowerManagement
 	/// </summary>
 	public static void PreventSleepAndDisplay()
 	{
-		if (_powerRequest == IntPtr.Zero)
+		lock (SyncRoot)
 		{
-			_powerRequest = PowerCreateRequest(new ReasonContext { Reason = 0 });
+			if (OperatingSystem.IsWindows())
+			{
+				if (_powerRequest == IntPtr.Zero)
+				{
+					_powerRequest = PowerCreateRequest(new ReasonContext { Reason = 0 });
+				}
+
+				if (_powerRequest != IntPtr.Zero)
+				{
+					PowerSetRequest(_powerRequest, POWER_REQUEST_TYPE_SYSTEM_REQUIRED);
+					PowerSetRequest(_powerRequest, POWER_REQUEST_TYPE_DISPLAY_REQUIRED);
+				}
+			}
+			else if (OperatingSystem.IsLinux())
+			{
+				StartLinuxInhibit();
+			}
+		}
+	}
+
+	private static void StartLinuxInhibit()
+	{
+		if (_linuxInhibitProcess is { HasExited: false })
+		{
+			return;
 		}
 
-		if (_powerRequest != IntPtr.Zero)
+		StopLinuxInhibit();
+
+		try
 		{
-			PowerSetRequest(_powerRequest, POWER_REQUEST_TYPE_SYSTEM_REQUIRED);
-			PowerSetRequest(_powerRequest, POWER_REQUEST_TYPE_DISPLAY_REQUIRED);
+			_linuxInhibitProcess = Process.Start(new ProcessStartInfo
+			{
+				FileName = "systemd-inhibit",
+				// tail ends with this process, so the inhibition cannot outlive a crash or a kill
+				Arguments = $"--what=sleep:idle --why=\"GrinVideoEncoder long-running operation\" tail --pid={Environment.ProcessId} -f /dev/null",
+				UseShellExecute = false,
+				CreateNoWindow = true
+			});
+		}
+		catch
+		{
+			_linuxInhibitProcess = null;
+		}
+	}
+
+	private static void StopLinuxInhibit()
+	{
+		if (_linuxInhibitProcess is null)
+		{
+			return;
+		}
+
+		try
+		{
+			if (!_linuxInhibitProcess.HasExited)
+			{
+				_linuxInhibitProcess.Kill(entireProcessTree: true);
+				_linuxInhibitProcess.WaitForExit(2000);
+			}
+		}
+		catch
+		{
+			// Ignore cleanup failures.
+		}
+		finally
+		{
+			_linuxInhibitProcess.Dispose();
+			_linuxInhibitProcess = null;
 		}
 	}
 

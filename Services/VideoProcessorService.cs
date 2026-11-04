@@ -58,25 +58,27 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log, Communi
 	}
 
 	/// <summary>
-	/// Downloads FFmpeg if not exists
+	/// Makes FFmpeg ready and verifies it runs. Downloads it if not exists, except on Linux where
+	/// <see cref="Startup.EncoderRequirements"/> already selected the system FFmpeg: the downloadable build has no VA-API.
 	/// </summary>
 	/// <returns></returns>
-	public async Task FfmpegDownload()
+	public async Task EnsureFfmpegReady()
 	{
-		string ffmpegPath = Path.Combine(settings.TempPath, "ffmpeg");
-		if (!Directory.Exists(ffmpegPath))
+		if (!OperatingSystem.IsLinux())
 		{
-			Directory.CreateDirectory(ffmpegPath);
+			string ffmpegPath = Path.Combine(settings.TempPath, "ffmpeg");
+			if (!Directory.Exists(ffmpegPath))
+			{
+				Directory.CreateDirectory(ffmpegPath);
+			}
+			FFmpeg.SetExecutablesPath(ffmpegPath);
+			await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official, ffmpegPath);
 		}
-		FFmpeg.SetExecutablesPath(ffmpegPath);
-		await FFmpegDownloader.GetLatestVersion(FFmpegVersion.Official, ffmpegPath);
-
-		string exePath = Path.Combine(ffmpegPath, "ffmpeg.exe");
 
 		try
 		{
 			using var process = new System.Diagnostics.Process();
-			process.StartInfo.FileName = exePath;
+			process.StartInfo.FileName = GlobUtils.GetFfmpegExecutablePath();
 			process.StartInfo.Arguments = "-version";
 			process.StartInfo.UseShellExecute = false;
 			process.StartInfo.RedirectStandardOutput = true;
@@ -106,10 +108,8 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log, Communi
 	/// <returns>The absolute FPS difference</returns>
 	public async Task<(double min, double max)> GetDiffFps(string videoPath)
 	{
-		string ffprobePath = Path.Combine(settings.TempPath, "ffmpeg", "ffprobe.exe");
-
 		using var process = new System.Diagnostics.Process();
-		process.StartInfo.FileName = ffprobePath;
+		process.StartInfo.FileName = GlobUtils.GetFfprobeExecutablePath();
 		process.StartInfo.Arguments = $"-v error -select_streams v:0 -show_entries frame=best_effort_timestamp_time -of csv=p=0 \"{videoPath}\"";
 		process.StartInfo.UseShellExecute = false;
 		process.StartInfo.RedirectStandardOutput = true;
@@ -180,7 +180,7 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log, Communi
 			if (!prepareSuccess)
 				return;
 
-			var encoder = new VideoEncoder(settings.ForceCpu, settings.QualityLevel, log, comm.Status.EncodingPercent, communication.VideoProcessToken.Token);
+			var encoder = new VideoEncoder(settings.QualityLevel, log, comm.Status.EncodingPercent, communication.VideoProcessToken.Token);
 
 			var encodeResult = await encoder.EncodeVideoAsync(filename.ProcessingPath, filename.TempPath);
 

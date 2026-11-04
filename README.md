@@ -5,8 +5,9 @@ A local video re-encoding tool that scans your video library, identifies files t
 ## Features
 
 ### GPU-Accelerated Encoding
-- Automatically detects your **NVIDIA** or **AMD** GPU and uses hardware-accelerated HEVC encoding (`hevc_nvenc` / `hevc_amf`).
-- Falls back to CPU encoding when no compatible GPU is found or when **Force CPU** is enabled.
+- On Windows, automatically detects your **NVIDIA** or **AMD** GPU and uses hardware-accelerated HEVC encoding (`hevc_nvenc` / `hevc_amf`).
+- On Linux, uses hardware-accelerated HEVC encoding through VA-API (`hevc_vaapi`).
+- There is no CPU encoding: without a working GPU encoder, videos are not encoded.
 
 ### Video Library Indexing
 - Point the application at a root folder and it indexes every video file it finds.
@@ -80,8 +81,23 @@ dotnet run
 
 ## Prerequisites
 
-- **NVIDIA** or **AMD** GPU recommended for hardware-accelerated encoding.
+### Windows
+- **NVIDIA** or **AMD** GPU.
 - **FFmpeg** is downloaded automatically on first launch — no manual installation required.
+
+### Linux
+- A GPU with HEVC encoding through VA-API (AMD or Intel). NVIDIA is not supported on Linux.
+- **FFmpeg** with VA-API support, installed on the system.
+- A VA-API driver with HEVC encoding.
+
+On Fedora with an AMD GPU, with [RPM Fusion](https://rpmfusion.org/Configuration) enabled:
+
+```bash
+sudo dnf install ffmpeg --allowerasing
+sudo dnf install mesa-va-drivers-freeworld
+```
+
+At startup the application encodes one test frame with `hevc_vaapi`. If that fails, it explains how to fix the setup and closes.
 
 ---
 
@@ -113,7 +129,6 @@ Navigate to the **Settings** page and set the **Indexer Path** to the root folde
 | Setting | Description | Default |
 |---|---|---|
 | **Quality Level (CRF/CQ)** | Lower = better quality / larger files. Recommended 18–28. | `23` |
-| **Force CPU** | Bypass GPU detection and use software encoding. | `false` |
 | **Encoding Threshold** | Quality ratio above which a video is considered for re-encoding. | `900` |
 | **Min File Size (MB)** | Ignore files smaller than this. | `100` |
 | **Min File Age (hours)** | Ignore recently modified files. | `100` |
@@ -158,7 +173,7 @@ Work sub-folders:
 | `Processing` | Temporary location while a file is being encoded. |
 | `Trash` | Original files replaced by their compressed version. |
 | `Failed` | Files that could not be encoded. |
-| `Temp` | FFmpeg binaries and temporary data. |
+| `Temp` | FFmpeg binaries (Windows) and temporary data. |
 | `Log` | Serilog log files. |
 
 ---

@@ -1,4 +1,5 @@
 ﻿using System.Management;
+using System.Runtime.InteropServices;
 
 namespace GrinVideoEncoder.Utils;
 
@@ -9,16 +10,36 @@ public class GpuDetector
 		Nvidia,
 		AMD,
 		Intel,
+		/// <summary>Linux: any GPU used through VA-API, validated at startup by EncoderRequirements.</summary>
+		Vaapi,
 		Unknown
 	}
 
+	/// <summary>
+	/// The render device validated at startup, used by hevc_vaapi.
+	/// </summary>
+	public static string VaapiDevice { get; set; } = "/dev/dri/renderD128";
+
 	public static GpuVendor DetectGpuVendor()
 	{
-		if (!OperatingSystem.IsWindows())
+		if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+		{
+			return DetectGpuVendorWindows();
+		}
+		else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+		{
+			return GpuVendor.Vaapi;
+		}
+
+		return GpuVendor.Unknown;
+	}
+
+	private static GpuVendor DetectGpuVendorWindows()
+	{
+		if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 		{
 			return GpuVendor.Unknown;
 		}
-
 		try
 		{
 			using ManagementObjectSearcher searcher = new("SELECT * FROM Win32_VideoController");

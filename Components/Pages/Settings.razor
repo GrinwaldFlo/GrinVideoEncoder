@@ -28,9 +28,6 @@
 			<RadzenLabel Text="Quality Level (CRF/CQ)" />
 			<RadzenNumeric @bind-Value="AppSettings.QualityLevel" TValue="int" Min="0" Max="51" Style="width: 200px;" />
 
-			<RadzenLabel Text="Force CPU encoding" />
-			<RadzenCheckBox @bind-Value="AppSettings.ForceCpu" TValue="bool" />
-
 			<RadzenLabel Text="Encoding Threshold (quality ratio)" />
 			<RadzenNumeric @bind-Value="AppSettings.EncodingThreshold" TValue="double" Step="10" Style="width: 200px;" />
 		</RadzenStack>

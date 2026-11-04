@@ -20,6 +20,59 @@ public class GlobUtilsTests : IDisposable
 	}
 
 	[Fact]
+	public void GetTrashDirectory_VideoInRootWithTrailingSeparator_ReturnsTrashRoot()
+	{
+		string root = Path.Combine(_tempDir, "videos");
+		string trash = Path.Combine(_tempDir, "Trash");
+
+		Assert.Equal(trash, GlobUtils.GetTrashDirectory(trash, root + Path.DirectorySeparatorChar, root));
+	}
+
+	[Fact]
+	public void GetTrashDirectory_VideoInRootWithoutTrailingSeparator_ReturnsTrashRoot()
+	{
+		string root = Path.Combine(_tempDir, "videos");
+		string trash = Path.Combine(_tempDir, "Trash");
+
+		Assert.Equal(trash, GlobUtils.GetTrashDirectory(trash, root, root));
+	}
+
+	[Theory]
+	[InlineData(true)]
+	[InlineData(false)]
+	public void GetTrashDirectory_VideoInSubfolder_KeepsStructure(bool trailingSeparator)
+	{
+		string root = Path.Combine(_tempDir, "videos");
+		string trash = Path.Combine(_tempDir, "Trash");
+		string indexerPath = trailingSeparator ? root + Path.DirectorySeparatorChar : root;
+
+		string result = GlobUtils.GetTrashDirectory(trash, indexerPath, Path.Combine(root, "a", "b"));
+
+		Assert.Equal(Path.Combine(trash, "a", "b"), result);
+	}
+
+	[Fact]
+	public void FormatFileSizeMb_MissingFile_ReturnsNotAvailable()
+	{
+		Assert.Equal("n/a", GlobUtils.FormatFileSizeMb(Path.Combine(_tempDir, "missing.mp4")));
+	}
+
+	[Fact]
+	public void FormatFileSizeMb_ExistingFile_ReturnsSize()
+	{
+		string filePath = Path.Combine(_tempDir, "video.mp4");
+		File.WriteAllBytes(filePath, new byte[1024 * 1024]);
+
+		Assert.Equal((1.0).ToString("F2") + " MB", GlobUtils.FormatFileSizeMb(filePath));
+	}
+
+	[Fact]
+	public void FindExecutableInPath_UnknownName_ReturnsNull()
+	{
+		Assert.Null(GlobUtils.FindExecutableInPath("grin-executable-that-does-not-exist"));
+	}
+
+	[Fact]
 	public void EnsureUniqueFilename_NoConflict_ReturnsSamePath()
 	{
 		string filePath = Path.Combine(_tempDir, "video.mp4");

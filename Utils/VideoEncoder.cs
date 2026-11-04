@@ -7,7 +7,7 @@ using static GrinVideoEncoder.Utils.GpuDetector;
 
 namespace GrinVideoEncoder.Utils;
 
-public partial class VideoEncoder(bool forceCpu, int qualityLevel, LogFfmpeg log, BehaviorSubject<double?> encodingPercent, CancellationToken appCt)
+public partial class VideoEncoder(int qualityLevel, LogFfmpeg log, BehaviorSubject<double?> encodingPercent, CancellationToken appCt)
 {
 	private int _errorCounter = 0;
 	private string _failReason = string.Empty;
@@ -32,10 +32,10 @@ public partial class VideoEncoder(bool forceCpu, int qualityLevel, LogFfmpeg log
 	{
 		try
 		{
-			var gpuType = GpuDetector.DetectGpuVendor();
 			var mediaInfo = await FFmpeg.GetMediaInfo(inputFilename, appCt);
+			var gpuType = GpuDetector.DetectGpuVendor();
 
-			if (!forceCpu && gpuType is GpuDetector.GpuVendor.Nvidia or GpuDetector.GpuVendor.AMD)
+			if (gpuType is GpuDetector.GpuVendor.Nvidia or GpuDetector.GpuVendor.AMD or GpuDetector.GpuVendor.Vaapi)
 			{
 				try
 				{
@@ -43,9 +43,9 @@ public partial class VideoEncoder(bool forceCpu, int qualityLevel, LogFfmpeg log
 				}
 				catch (Exception ex) when (ex.Message.Contains("encoder") || ex.Message.Contains("GPU"))
 				{
-					log.Warning("{GpuType} GPU encoding failed. Falling back to CPU encoding. Error: {ErrorMessage}", gpuType, ex.Message);
+					log.Warning("{GpuType} GPU encoding failed. Error: {ErrorMessage}", gpuType, ex.Message);
 
-					return new EncodingResult(false, $"{gpuType} GPU encoding failed. Falling back to CPU encoding. Error: {ex.Message}", ResultReason.GPU);
+					return new EncodingResult(false, $"{gpuType} GPU encoding failed. Error: {ex.Message}", ResultReason.GPU);
 				}
 			}
 			else
@@ -58,6 +58,30 @@ public partial class VideoEncoder(bool forceCpu, int qualityLevel, LogFfmpeg log
 			return new EncodingResult(false, ex.Message, ResultReason.Exception);
 		}
 	}
+
+	/// <summary>
+	/// Xabe can report success when FFmpeg fails right after starting, because it does not wait for all
+	/// of FFmpeg's output before checking for errors. So a successful result must have produced a file.
+	/// </summary>
+	internal static bool HasOutputFile(string outputPath)
+	{
+		var file = new FileInfo(outputPath);
+		return file.Exists && file.Length > 0;
+	}
+
+	/// <summary>
+	/// Output parameters for hevc_vaapi. Never add "-tag:v hvc1" here: the muxer then drops the parameter sets
+	/// the driver writes in the stream and keeps only the initial ones, which do not match. Every frame of the
+	/// video decodes as garbage, while FFmpeg reports success and duration, resolution and FPS stay correct.
+	/// </summary>
+	internal static string[] GetVaapiOutputParameters(int qualityLevel) =>
+	[
+		"-vf format=nv12,hwupload",
+		"-c:v hevc_vaapi",
+		"-rc_mode CQP",
+		$"-global_quality {qualityLevel}",
+		"-g 60",
+	];
 
 	internal static TimeSpan? ParseFfmpegToTimeSpan(string? log)
 	{
@@ -156,6 +180,14 @@ public partial class VideoEncoder(bool forceCpu, int qualityLevel, LogFfmpeg log
 					.AddParameter("-tag:v hvc1");
 				break;
 
+			case GpuVendor.Vaapi:
+				conversion.AddParameter($"-vaapi_device {GpuDetector.VaapiDevice}", ParameterPosition.PreInput);
+				foreach (string parameter in GetVaapiOutputParameters(qualityLevel))
+				{
+					conversion.AddParameter(parameter);
+				}
+				break;
+
 			default:
 				return new EncodingResult(false, "Unsupported GPU type", ResultReason.GPU);
 		}
@@ -215,6 +247,9 @@ public partial class VideoEncoder(bool forceCpu, int qualityLevel, LogFfmpeg log
 		{
 			conversion.OnDataReceived -= handler;
 		}
-		return new EncodingResult(true, string.Empty, ResultReason.None);
+
+		return HasOutputFile(outputPath)
+			? new EncodingResult(true, string.Empty, ResultReason.None)
+			: new EncodingResult(false, $"FFmpeg ({gpuType}) did not produce an output file", ResultReason.FfmpegFail);
 	}
 }

@@ -113,7 +113,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 			return;
 		}
 
-		var encoder = new VideoEncoder(settings.ForceCpu, settings.QualityLevel, logFfmpeg, comm.Status.EncodingPercent, comm.VideoProcessToken.Token);
+		var encoder = new VideoEncoder(settings.QualityLevel, logFfmpeg, comm.Status.EncodingPercent, comm.VideoProcessToken.Token);
 
 		var result = await encoder.EncodeVideoAsync(tempInputPath, tempOutputPath);
 
@@ -128,7 +128,8 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 		{
 			video.Status = CompressionStatus.FailedToCompress;
 			comm.Status.Status.OnNext(STR_ERROR);
-			log.Error("Encoding failed", result.ErrorMessage, video);
+			video.EncodingErrorMessage = result.ErrorMessage;
+			log.Error("Encoding failed {FilePath}: {ErrorMessage}", video.FullPath, result.ErrorMessage);
 			await File.WriteAllTextAsync(Path.Combine(tempDir, "error.txt"), result.Dump());
 			return;
 		}
@@ -146,7 +147,8 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 		var originalCreationTime = new FileInfo(video.FullPath).CreationTime;
 		var originalLastWriteTime = new FileInfo(video.FullPath).LastWriteTime;
 		double fpsTol = 2;
-		bool hasFpsDiff = Math.Abs((originalFps ?? 0) - (compressedFps ?? 0)) > fpsTol;
+		// Unreadable FPS is reported below as a media info failure, it must not trigger the slow full-file scan
+		bool hasFpsDiff = originalFps != null && compressedFps != null && Math.Abs(originalFps.Value - compressedFps.Value) > fpsTol;
 		(double min, double max) = hasFpsDiff ? await videoProcessor.GetDiffFps(tempInputPath) : (0, 0);
 
 		if (!result.Success)
@@ -183,10 +185,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 				{
 					log.Warning("{video} has originally a FPS between {min:F2} and {max:F2}", video.FullPath, min, max);
 				}
-				string indexerPath = Path.GetFullPath(settings.IndexerPath);
-				string videoDirpath = Path.GetFullPath(video.DirectoryPath);
-				string relativePath = videoDirpath[indexerPath.Length..].TrimStart(Path.DirectorySeparatorChar);
-				string trashDir = Path.GetFullPath(Path.Combine(settings.TrashPath, relativePath));
+				string trashDir = GlobUtils.GetTrashDirectory(settings.TrashPath, settings.IndexerPath, video.DirectoryPath);
 
 				// Prepare trash
 				string trashPath = Path.Combine(trashDir, video.Filename);
@@ -217,7 +216,8 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 			{
 				video.Status = CompressionStatus.FailedToCompress;
 				comm.Status.Status.OnNext(STR_ERROR);
-				log.Error("Encoding failed", ex, video);
+				video.EncodingErrorMessage = ex.Message;
+				log.Error(ex, "Encoding failed {FilePath}", video.FullPath);
 			}
 		}
 
@@ -246,7 +246,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 			text.AppendLine($"{"Video Bitrate",-25} | {originalInfo?.VideoStreams.FirstOrDefault()?.Bitrate} {"",-19} | {compressedInfo?.VideoStreams.FirstOrDefault()?.Bitrate}");
 			text.AppendLine($"{"Audio Bitrate",-25} | {originalInfo?.AudioStreams.FirstOrDefault()?.Bitrate} {"",-19} | {compressedInfo?.AudioStreams.FirstOrDefault()?.Bitrate}");
 			text.AppendLine($"{"Sample Rate",-25} | {originalInfo?.AudioStreams.FirstOrDefault()?.SampleRate} Hz {"",-19} | {compressedInfo?.AudioStreams.FirstOrDefault()?.SampleRate} Hz");
-			text.AppendLine($"{"File Size",-25} | {new FileInfo(tempInputPath).Length / (1024 * 1024.0):F2} MB {"",-18} | {new FileInfo(tempOutputPath).Length / (1024 * 1024.0):F2} MB");
+			text.AppendLine($"{"File Size",-25} | {GlobUtils.FormatFileSizeMb(tempInputPath)} {"",-18} | {GlobUtils.FormatFileSizeMb(tempOutputPath)}");
 
 			video.EncodingErrorMessage = message;
 			File.WriteAllText(Path.Combine(tempDir, "error.txt"), text.ToString());

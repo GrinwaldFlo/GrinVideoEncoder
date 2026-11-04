@@ -32,7 +32,7 @@ public static class PipelineConfiguration
 		await db.Database.MigrateAsync();
 
 		var videoProcessor = scope.ServiceProvider.GetRequiredService<VideoProcessorService>();
-		await videoProcessor.FfmpegDownload();
+		await videoProcessor.EnsureFfmpegReady();
 
 		var logMain = scope.ServiceProvider.GetRequiredService<LogMain>();
 		await VideoDbContext.EnableWalModeAsync();

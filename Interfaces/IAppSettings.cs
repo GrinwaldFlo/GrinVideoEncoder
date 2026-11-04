@@ -13,8 +13,6 @@ public interface IAppSettings
 	string TrashPath { get; }
 	string LogPath { get; }
 
-	bool ForceCpu { get; set; }
-
 	/// <summary>
 	/// Quality level for encoding (CRF/CQ value).
 	/// Lower values = better quality, larger files.

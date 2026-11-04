@@ -45,6 +45,22 @@ public class ConfigManagerTests : IDisposable
 	}
 
 	[Fact]
+	public void LoadConfig_ExistingConfigWithRemovedForceCpu_StillLoads()
+	{
+		var configName = UniqueConfigName();
+		var original = new AppSettings { ConfigName = configName, QualityLevel = 20 };
+		original.InitializePaths();
+		ConfigManager.SaveConfig(original);
+		string json = File.ReadAllText(original.ConfigFilePath);
+		File.WriteAllText(original.ConfigFilePath, json.Replace("\"QualityLevel\"", "\"ForceCpu\": true, \"QualityLevel\""));
+
+		var loaded = ConfigManager.LoadConfig(configName);
+
+		Assert.Contains("ForceCpu", File.ReadAllText(original.ConfigFilePath));
+		Assert.Equal(20, loaded.QualityLevel);
+	}
+
+	[Fact]
 	public void LoadConfig_ReturnsCorrectSettings()
 	{
 		var configName = UniqueConfigName();
@@ -53,7 +69,6 @@ public class ConfigManagerTests : IDisposable
 		{
 			ConfigName = configName,
 			QualityLevel = 20,
-			ForceCpu = true,
 			IndexerPath = indexerPath,
 			EncodingThreshold = 500,
 			MinFileSizeMb = 50,
@@ -66,7 +81,6 @@ public class ConfigManagerTests : IDisposable
 
 		Assert.Equal(configName, loaded.ConfigName);
 		Assert.Equal(20, loaded.QualityLevel);
-		Assert.True(loaded.ForceCpu);
 		Assert.Equal(Path.GetFullPath(indexerPath), loaded.IndexerPath);
 		Assert.Equal(500, loaded.EncodingThreshold);
 		Assert.Equal(50, loaded.MinFileSizeMb);

@@ -45,8 +45,6 @@ public class AppSettings : IAppSettings
 	[JsonIgnore]
 	public string LogPath => Path.GetFullPath(Path.Combine(WorkPath, "Log"));
 
-	public bool ForceCpu { get; set; } = false;
-
 	/// <inheritdoc/>
 	public int QualityLevel { get; set; } = 23;
 

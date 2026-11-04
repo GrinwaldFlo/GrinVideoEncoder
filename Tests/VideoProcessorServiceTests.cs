@@ -6,6 +6,44 @@ namespace Tests;
 public class VideoProcessorServiceTests
 {
 	[Fact]
+	public void GetVaapiOutputParameters_UsesEncoderAndQuality()
+	{
+		string[] parameters = VideoEncoder.GetVaapiOutputParameters(28);
+
+		Assert.Contains("-c:v hevc_vaapi", parameters);
+		Assert.Contains("-global_quality 28", parameters);
+	}
+
+	[Fact]
+	public void GetVaapiOutputParameters_NeverTagsHvc1_BecauseItCorruptsTheVideo()
+	{
+		Assert.DoesNotContain(VideoEncoder.GetVaapiOutputParameters(28), parameter => parameter.Contains("hvc1"));
+	}
+
+	[Fact]
+	public void HasOutputFile_MissingFile_ReturnsFalse()
+	{
+		Assert.False(VideoEncoder.HasOutputFile(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".mp4")));
+	}
+
+	[Theory]
+	[InlineData(0, false)]
+	[InlineData(1, true)]
+	public void HasOutputFile_ExistingFile_RequiresContent(int size, bool expected)
+	{
+		string filePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".mp4");
+		File.WriteAllBytes(filePath, new byte[size]);
+		try
+		{
+			Assert.Equal(expected, VideoEncoder.HasOutputFile(filePath));
+		}
+		finally
+		{
+			File.Delete(filePath);
+		}
+	}
+
+	[Fact]
 	public void ParseFfmpegToTimeSpan_ValidTimeString_ReturnsParsedTimeSpan()
 	{
 		string log = "frame=  123 fps= 30 q=28.0 size=   1024kB time=00:01:30.50 bitrate= 2000kbps";

@@ -1,5 +1,8 @@
 using GrinVideoEncoder.Startup;
 
+if (!await EncoderRequirements.EnsureMetAsync())
+	return 1;
+
 var appSettings = ConfigurationSelector.SelectAndLoadConfig(args);
 
 var builder = WebApplication.CreateBuilder(args);
@@ -11,3 +14,4 @@ await app.InitializeDatabaseAsync();
 app.RegisterStartupBanner();
 
 await app.RunAsync();
+return 0;

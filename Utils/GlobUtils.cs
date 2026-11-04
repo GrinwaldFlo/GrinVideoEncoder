@@ -67,4 +67,51 @@ public static class GlobUtils
 			}
 		}
 	}
+
+	/// <summary>
+	/// Gets the trash folder of a video, keeping its folder structure relative to the indexed root.
+	/// </summary>
+	public static string GetTrashDirectory(string trashRoot, string indexerPath, string videoDirectory)
+	{
+		string relativePath = Path.GetRelativePath(Path.GetFullPath(indexerPath), Path.GetFullPath(videoDirectory));
+		return Path.GetFullPath(Path.Combine(trashRoot, relativePath));
+	}
+
+	/// <summary>
+	/// Finds an executable in the folders of the PATH environment variable.
+	/// </summary>
+	/// <returns>The full path of the executable, or null if it was not found.</returns>
+	public static string? FindExecutableInPath(string name)
+	{
+		string path = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+		return path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries)
+			.Select(folder => Path.Combine(folder, name))
+			.FirstOrDefault(File.Exists);
+	}
+
+	/// <summary>
+	/// Formats a file size for reports, also when the file does not exist.
+	/// </summary>
+	public static string FormatFileSizeMb(string filePath) =>
+		File.Exists(filePath) ? $"{new FileInfo(filePath).Length / (1024 * 1024.0):F2} MB" : "n/a";
+
+	public static string GetFfmpegExecutablePath()
+	{
+		string ffmpegPath = Path.Combine(Xabe.FFmpeg.FFmpeg.ExecutablesPath, "ffmpeg");
+		if (OperatingSystem.IsWindows())
+		{
+			ffmpegPath += ".exe";
+		}
+		return ffmpegPath;
+	}
+
+	public static string GetFfprobeExecutablePath()
+	{
+		string ffprobePath = Path.Combine(Xabe.FFmpeg.FFmpeg.ExecutablesPath, "ffprobe");
+		if (OperatingSystem.IsWindows())
+		{
+			ffprobePath += ".exe";
+		}
+		return ffprobePath;
+	}
 }

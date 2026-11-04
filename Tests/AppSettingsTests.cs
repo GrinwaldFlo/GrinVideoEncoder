@@ -110,7 +110,6 @@ public class AppSettingsTests
 	{
 		var settings = new AppSettings();
 
-		Assert.False(settings.ForceCpu);
 		Assert.Equal(23, settings.QualityLevel);
 		Assert.Equal(string.Empty, settings.IndexerPath);
 		Assert.Equal(500, settings.EncodingThreshold);
