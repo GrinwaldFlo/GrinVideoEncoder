@@ -43,6 +43,11 @@ public interface IAppSettings
 	string? VideosGridSettings { get; set; }
 
 	/// <summary>
+	/// Whether the Re-Encode page lists the videos above 8 bits.
+	/// </summary>
+	bool ReEncodeShowHighBitDepth { get; set; }
+
+	/// <summary>
 	/// Port for the web UI. Default: 14563.
 	/// </summary>
 	int Port { get; set; }

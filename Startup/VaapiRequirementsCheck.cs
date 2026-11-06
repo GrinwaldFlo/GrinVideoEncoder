@@ -1,7 +1,5 @@
 namespace GrinVideoEncoder.Startup;
 
-public sealed record CommandResult(int ExitCode, string Output);
-
 public sealed record RequirementProblem(string Title, string Detail, IReadOnlyList<string> Fix);
 
 /// <summary>

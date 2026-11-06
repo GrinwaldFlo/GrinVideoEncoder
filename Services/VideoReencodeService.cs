@@ -1,10 +1,9 @@
 using GrinVideoEncoder.Models;
-using System.Diagnostics;
 using System.Text;
 
 namespace GrinVideoEncoder.Services;
 
-public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSettings settings, LogMain log, LogFfmpeg logFfmpeg, CommunicationService comm) : BackgroundService
+public class VideoReencodeService(IAppSettings settings, LogMain log, LogFfmpeg logFfmpeg, CommunicationService comm) : BackgroundService
 {
 	public const string MP4_EXT = ".mp4";
 	private const string STR_ERROR = "Error";
@@ -34,7 +33,18 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 				{
 					comm.Status.IsRunning.OnNext(true);
 					comm.Status.Filename.OnNext(video.FullPath);
-					await ReencodeVideoAsync(video);
+					try
+					{
+						await ReencodeVideoAsync(video);
+					}
+					catch (Exception ex)
+					{
+						// An unexpected error must fail this video only, not stop the service and the whole queue
+						video.Status = CompressionStatus.FailedToCompress;
+						video.EncodingErrorMessage = ex.Message;
+						comm.Status.Status.OnNext(STR_ERROR);
+						log.Error(ex, "Unexpected error while re-encoding {FilePath}", video.FullPath);
+					}
 					await context.SaveChangesAsync(stoppingToken);
 					comm.Status.IsRunning.OnNext(false);
 
@@ -55,10 +65,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 
 			if (ShouldShutdown())
 			{
-				log.Information("Shutdown condition met, shutting down the computer");
-				comm.Status.Status.OnNext("Shutting down...");
-				ExecuteShutdown();
-				comm.AskClose = true;
+				await ExecuteShutdownAsync();
 			}
 			if (comm.AskClose)
 			{
@@ -149,7 +156,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 		double fpsTol = 2;
 		// Unreadable FPS is reported below as a media info failure, it must not trigger the slow full-file scan
 		bool hasFpsDiff = originalFps != null && compressedFps != null && Math.Abs(originalFps.Value - compressedFps.Value) > fpsTol;
-		(double min, double max) = hasFpsDiff ? await videoProcessor.GetDiffFps(tempInputPath) : (0, 0);
+		(double min, double max) = hasFpsDiff ? await GetFpsRangeAsync(tempInputPath) : (0, 0);
 
 		if (!result.Success)
 		{
@@ -206,6 +213,7 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 
 				var newMediaInfo = await VideoProcessorService.GetMediaInfo(video.FullPath);
 				video.Sanity = newMediaInfo?.VideoIsSane() is true ? SanityStatus.EncodedOk : SanityStatus.EncodedKo;
+				video.BitDepth = newMediaInfo?.GetBitDepth() ?? VideoFile.BIT_DEPTH_UNKNOWN;
 				video.FileSizeCompressed = new FileInfo(video.FullPath).Length;
 				video.Status = CompressionStatus.Compressed;
 				video.LastModified = DateTime.Now;
@@ -267,14 +275,41 @@ public class VideoReencodeService(VideoProcessorService videoProcessor, IAppSett
 		return (comm.ScheduledShutdownEnabled && DateTime.Now >= comm.ScheduledShutdownTime) || (!comm.AskTreatFiles && comm.ShutdownWhenDone);
 	}
 
-	private static void ExecuteShutdown()
+	/// <summary>
+	/// Schedules the shutdown and closes the application. If the system refuses, the application stays open
+	/// and the shutdown options are turned off, so it does not retry every second.
+	/// </summary>
+	private async Task ExecuteShutdownAsync()
 	{
-		Process.Start(new ProcessStartInfo
+		log.Information("Shutdown condition met, shutting down the computer");
+		comm.Status.Status.OnNext("Shutting down...");
+
+		var result = await SystemShutdown.RequestAsync();
+		if (result.ExitCode == 0)
 		{
-			FileName = "shutdown",
-			Arguments = "/s /t 60 /c \"GrinVideoEncoder scheduled shutdown\"",
-			CreateNoWindow = true,
-			UseShellExecute = false
-		});
+			comm.AskClose = true;
+			return;
+		}
+
+		comm.ScheduledShutdownEnabled = false;
+		comm.ShutdownWhenDone = false;
+		comm.Status.Status.OnNext("Shutdown failed");
+		log.Error("Shutdown failed with exit code {ExitCode}: {Output}", result.ExitCode, result.Output.Trim());
+	}
+
+	/// <summary>
+	/// Scans the FPS of every frame. A failure is logged and returns an empty range, which fails the video as an FPS change.
+	/// </summary>
+	private async Task<(double min, double max)> GetFpsRangeAsync(string videoPath)
+	{
+		try
+		{
+			return await VideoProcessorService.GetDiffFps(videoPath);
+		}
+		catch (Exception ex)
+		{
+			log.Error(ex, "Failed to scan the FPS of {FilePath}", videoPath);
+			return (0, 0);
+		}
 	}
 }

@@ -71,9 +71,13 @@ public static class GlobUtils
 	/// <summary>
 	/// Gets the trash folder of a video, keeping its folder structure relative to the indexed root.
 	/// </summary>
+	/// <exception cref="InvalidOperationException">The video is not inside the indexed root, so its trash folder would be outside the trash.</exception>
 	public static string GetTrashDirectory(string trashRoot, string indexerPath, string videoDirectory)
 	{
 		string relativePath = Path.GetRelativePath(Path.GetFullPath(indexerPath), Path.GetFullPath(videoDirectory));
+		if (Path.IsPathRooted(relativePath) || relativePath == ".." || relativePath.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+			throw new InvalidOperationException($"{videoDirectory} is not inside the indexed folder {indexerPath}");
+
 		return Path.GetFullPath(Path.Combine(trashRoot, relativePath));
 	}
 

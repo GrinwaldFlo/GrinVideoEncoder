@@ -1,8 +1,10 @@
 using System.Linq;
+using System.Linq.Expressions;
 using GrinVideoEncoder.Data;
 using GrinVideoEncoder.Models;
 using GrinVideoEncoder.Utils;
 using Microsoft.EntityFrameworkCore;
+using Xabe.FFmpeg;
 
 namespace GrinVideoEncoder.Services;
 
@@ -62,6 +64,7 @@ public class VideoIndexerService : BackgroundService
 		await CleanIgnored(stoppingToken);
 		await IndexExistingFiles(stoppingToken);
 		await UpdateMissingStatus(stoppingToken);
+		await UpdateMissingBitDepth(stoppingToken);
 	}
 
 	/// <summary>
@@ -73,21 +76,43 @@ public class VideoIndexerService : BackgroundService
 	/// </summary>
 	/// <param name="stoppingToken"></param>
 	/// <returns></returns>
-	private async Task UpdateMissingStatus(CancellationToken stoppingToken)
+	private Task UpdateMissingStatus(CancellationToken stoppingToken) =>
+		UpdateMissingMediaInfo("sanity status", v => v.Sanity == SanityStatus.Unknown, (videoFile, mediaInfo) =>
+		{
+			bool isSane = mediaInfo?.VideoIsSane() is true;
+			videoFile.Sanity = videoFile.Status == CompressionStatus.Compressed
+				? (isSane ? SanityStatus.EncodedOk : SanityStatus.EncodedKo)
+				: (isSane ? SanityStatus.OriginalOk : SanityStatus.OriginalKo);
+		}, stoppingToken);
+
+	/// <summary>
+	/// Reads the bit depth of the videos indexed before it was stored.
+	/// </summary>
+	private Task UpdateMissingBitDepth(CancellationToken stoppingToken) =>
+		UpdateMissingMediaInfo("bit depth", v => v.BitDepth == null,
+			(videoFile, mediaInfo) => videoFile.BitDepth = mediaInfo?.GetBitDepth() ?? VideoFile.BIT_DEPTH_UNKNOWN,
+			stoppingToken);
+
+	/// <summary>
+	/// Reads the media info of every video matching <paramref name="filter"/> and lets <paramref name="update"/> fill the missing value.
+	/// </summary>
+	/// <param name="what">Name of the value, for the log.</param>
+	private async Task UpdateMissingMediaInfo(string what, Expression<Func<VideoFile, bool>> filter,
+		Action<VideoFile, IMediaInfo?> update, CancellationToken stoppingToken)
 	{
 		await using var context = new VideoDbContext();
 
-		var unknownFiles = await context.VideoFiles
-			.Where(v => v.Sanity == SanityStatus.Unknown)
+		var files = await context.VideoFiles
+			.Where(filter)
 			.ToListAsync(stoppingToken);
 
-		if (unknownFiles.Count == 0)
+		if (files.Count == 0)
 			return;
 
-		_log.Information("Updating sanity status for {Count} files", unknownFiles.Count);
+		_log.Information("Updating {What} for {Count} files", what, files.Count);
 
 		uint cnt = 0;
-		foreach (var videoFile in unknownFiles)
+		foreach (var videoFile in files)
 		{
 			if (stoppingToken.IsCancellationRequested)
 				break;
@@ -95,26 +120,22 @@ public class VideoIndexerService : BackgroundService
 			try
 			{
 				var mediaInfo = await VideoProcessorService.GetMediaInfo(videoFile.FullPath, stoppingToken);
-				bool isSane = mediaInfo?.VideoIsSane() is true;
-
-				videoFile.Sanity = videoFile.Status == CompressionStatus.Compressed
-					? (isSane ? SanityStatus.EncodedOk : SanityStatus.EncodedKo)
-					: (isSane ? SanityStatus.OriginalOk : SanityStatus.OriginalKo);
+				update(videoFile, mediaInfo);
 			}
 			catch (Exception ex)
 			{
-				_log.Error(ex, "Failed to check sanity for {FilePath}", videoFile.FullPath);
+				_log.Error(ex, "Failed to update {What} for {FilePath}", what, videoFile.FullPath);
 			}
 
 			if (cnt++ % 200 == 0)
 			{
 				await context.SaveChangesAsync(stoppingToken);
-				_log.Information("Updating sanity status {Count}/{Total} files", cnt, unknownFiles.Count);
+				_log.Information("Updating {What} {Count}/{Total} files", what, cnt, files.Count);
 			}
 		}
 
 		await context.SaveChangesAsync(stoppingToken);
-		_log.Information("Sanity status update complete");
+		_log.Information("{What} update complete", what);
 	}
 
 	private async Task CleanIgnored(CancellationToken stoppingToken)
@@ -302,6 +323,7 @@ public class VideoIndexerService : BackgroundService
 				Height = videoStream?.Height,
 				LastModified = fileInfo.LastWriteTimeUtc,
 				Fps = videoStream?.Framerate,
+				BitDepth = mediaInfo?.GetBitDepth() ?? VideoFile.BIT_DEPTH_UNKNOWN,
 				Sanity = mediaInfo?.VideoIsSane() is true ? SanityStatus.OriginalOk : SanityStatus.OriginalKo
 			};
 

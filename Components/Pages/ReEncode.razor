@@ -8,6 +8,10 @@
     <RadzenNumeric @bind-Value=MinSizeMb TValue="double" Step="10" Style="width: 200px;" Change="RefreshDb" />
     <RadzenLabel Text="Min age [H]" />
     <RadzenNumeric @bind-Value=MinAgeH TValue="double" Step="10" Style="width: 200px;" Change="RefreshDb" />
+    <span class="reencode-option">
+        <RadzenCheckBox Value=@AppSettings.ReEncodeShowHighBitDepth TValue="bool" Name="chkShowHighBitDepth" Change="OnShowHighBitDepthChanged" />
+        <RadzenLabel Text="Show videos above 8-bit (re-encoded to 8-bit)" Component="chkShowHighBitDepth" />
+    </span>
     <RadzenButton Text=@($"Start Re-encoding {_selectedVideoCount} videos") Click="StartReencoding" ButtonStyle="ButtonStyle.Danger" Visible=@(_videos.Count > 0) />
 </div>
 
@@ -30,6 +34,9 @@
         <RadzenDataGridColumn Property="@nameof(VideoFile.QualityRatio)" Title="Quality" FormatString="{0:F0}" Width="100px" />
         <RadzenDataGridColumn Property="@nameof(VideoFile.CompressionFactor)" Title="Comp." FormatString="{0:F0}%" Width="100px" />
         <RadzenDataGridColumn Property="@nameof(VideoFile.Fps)" Title="FPS" Width="100px" />
+        <RadzenDataGridColumn Property="@nameof(VideoFile.BitDepth)" Title="Bit depth" Width="100px">
+            <Template Context="data">@data.BitDepthFormatted</Template>
+        </RadzenDataGridColumn>
         <RadzenDataGridColumn Property="@nameof(VideoFile.LastModified)" Title="Modif." Width="150px" />
     </Columns>
 </RadzenDataGrid>

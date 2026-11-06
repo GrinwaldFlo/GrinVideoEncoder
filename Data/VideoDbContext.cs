@@ -44,13 +44,21 @@ public class VideoDbContext : DbContext
 			.ToListAsync();
 	}
 
-	public async Task<List<VideoFile>> GetVideosWithHighQualityRatioAsync(double threshold, double minSizeByte, DateTime maxLastModifiedTime)
+	public static async Task<int> CountVideosAsync()
+	{
+		await using var context = new VideoDbContext();
+		return await context.VideoFiles.CountAsync();
+	}
+
+	/// <param name="includeHighBitDepth">False to leave out the videos above 8 bits, see <see cref="VideoFile.IsHighBitDepth"/>.</param>
+	public async Task<List<VideoFile>> GetVideosWithHighQualityRatioAsync(double threshold, double minSizeByte, DateTime maxLastModifiedTime, bool includeHighBitDepth)
 	{
 		return await VideoFiles
 			.Where(v => v.Status == CompressionStatus.Original)
 			.AsNoTracking()
 			.AsAsyncEnumerable()
-			.Where(v => v.QualityRatioOriginal.HasValue && v.QualityRatioOriginal > threshold && v.FileSizeOriginal > minSizeByte && v.LastModified < maxLastModifiedTime)
+			.Where(v => v.QualityRatioOriginal.HasValue && v.QualityRatioOriginal > threshold && v.FileSizeOriginal > minSizeByte && v.LastModified < maxLastModifiedTime
+				&& (includeHighBitDepth || !v.IsHighBitDepth))
 			.ToListAsync();
 	}
 

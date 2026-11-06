@@ -197,4 +197,55 @@ public class VideoProcessorServiceTests
 
 		Assert.Null(result);
 	}
+
+	[Fact]
+	public void DescribeFailure_ThrownException_KeepsTheMessage()
+	{
+		// A thrown exception has a TargetSite, which made the former JSON serialization throw and hide the message
+		Exception thrown;
+		try
+		{
+			throw new InvalidOperationException("Conversion failed: [hevc_vaapi] No usable encoding profile found.");
+		}
+		catch (Exception ex)
+		{
+			thrown = ex;
+		}
+
+		Assert.Equal("Conversion failed: [hevc_vaapi] No usable encoding profile found.", VideoEncoder.DescribeFailure(thrown, string.Empty));
+	}
+
+	[Fact]
+	public void DescribeFailure_WithFailReason_AppendsIt()
+	{
+		Assert.Equal("boom - too many errors", VideoEncoder.DescribeFailure(new Exception("boom"), "too many errors"));
+	}
+
+	[Fact]
+	public void ComputeFpsRange_ConstantFrameRate_ReturnsSameMinAndMax()
+	{
+		(double min, double max) = VideoProcessorService.ComputeFpsRange("0.000000\n0.040000\n0.080000\n0.120000\n");
+
+		Assert.Equal(25, min, 3);
+		Assert.Equal(25, max, 3);
+	}
+
+	[Fact]
+	public void ComputeFpsRange_VariableFrameRate_ReturnsRange()
+	{
+		// 25 FPS then 50 FPS, with ffprobe's trailing commas and an N/A line
+		(double min, double max) = VideoProcessorService.ComputeFpsRange("0.000000,\n0.040000,\nN/A\n0.080000,\n0.100000,\n");
+
+		Assert.Equal(25, min, 3);
+		Assert.Equal(50, max, 3);
+	}
+
+	[Theory]
+	[InlineData("")]
+	[InlineData("0.000000\n")]
+	[InlineData("1.0\n1.0\n")]
+	public void ComputeFpsRange_NotEnoughFrames_ReturnsZero(string output)
+	{
+		Assert.Equal((0.0, 0.0), VideoProcessorService.ComputeFpsRange(output));
+	}
 }

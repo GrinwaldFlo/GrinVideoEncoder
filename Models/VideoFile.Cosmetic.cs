@@ -2,6 +2,8 @@ namespace GrinVideoEncoder.Models;
 
 public partial class VideoFile
 {
+	public string BitDepthFormatted => BitDepth is null or BIT_DEPTH_UNKNOWN ? "-" : $"{BitDepth}-bit";
+
 	public string DurationFormatted => FormatDuration(DurationSeconds);
 
 	/// <summary>

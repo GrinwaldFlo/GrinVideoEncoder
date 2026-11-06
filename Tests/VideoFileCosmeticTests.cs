@@ -270,4 +270,25 @@ public class VideoFileCosmeticTests
 			Assert.False(string.IsNullOrEmpty(video.StatusIcon));
 		}
 	}
+
+	[Theory]
+	[InlineData(null, "-")]
+	[InlineData(VideoFile.BIT_DEPTH_UNKNOWN, "-")]
+	[InlineData(8, "8-bit")]
+	[InlineData(10, "10-bit")]
+	public void BitDepthFormatted_ReturnsExpected(int? bitDepth, string expected)
+	{
+		Assert.Equal(expected, new VideoFile { BitDepth = bitDepth }.BitDepthFormatted);
+	}
+
+	[Theory]
+	[InlineData(null, false)]
+	[InlineData(VideoFile.BIT_DEPTH_UNKNOWN, false)]
+	[InlineData(8, false)]
+	[InlineData(10, true)]
+	[InlineData(12, true)]
+	public void IsHighBitDepth_OnlyAboveEightBits(int? bitDepth, bool expected)
+	{
+		Assert.Equal(expected, new VideoFile { BitDepth = bitDepth }.IsHighBitDepth);
+	}
 }

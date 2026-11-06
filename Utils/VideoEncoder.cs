@@ -70,6 +70,13 @@ public partial class VideoEncoder(int qualityLevel, LogFfmpeg log, BehaviorSubje
 	}
 
 	/// <summary>
+	/// Error message of a failed conversion. Never serialize the exception: System.Text.Json throws on its TargetSite,
+	/// which hides the FFmpeg error that Xabe puts in the message.
+	/// </summary>
+	internal static string DescribeFailure(Exception ex, string failReason) =>
+		string.IsNullOrEmpty(failReason) ? ex.Message : $"{ex.Message} - {failReason}";
+
+	/// <summary>
 	/// Output parameters for hevc_vaapi. Never add "-tag:v hvc1" here: the muxer then drops the parameter sets
 	/// the driver writes in the stream and keeps only the initial ones, which do not match. Every frame of the
 	/// video decodes as garbage, while FFmpeg reports success and duration, resolution and FPS stay correct.
@@ -241,7 +248,8 @@ public partial class VideoEncoder(int qualityLevel, LogFfmpeg log, BehaviorSubje
 		}
 		catch (Exception ex)
 		{
-			return new EncodingResult(false, $"{System.Text.Json.JsonSerializer.Serialize(ex)} - {_failReason}", ResultReason.Exception);
+			log.Error(ex, "FFmpeg ({GpuType}) conversion failed", gpuType);
+			return new EncodingResult(false, DescribeFailure(ex, _failReason), ResultReason.Exception);
 		}
 		finally
 		{

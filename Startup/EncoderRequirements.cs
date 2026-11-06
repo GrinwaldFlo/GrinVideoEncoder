@@ -1,5 +1,3 @@
-using System.ComponentModel;
-using System.Diagnostics;
 using Xabe.FFmpeg;
 
 namespace GrinVideoEncoder.Startup;
@@ -39,35 +37,8 @@ public static class EncoderRequirements
 	private static IEnumerable<string> FindRenderDevices() =>
 		Directory.Exists(DRI_FOLDER) ? Directory.GetFiles(DRI_FOLDER, "renderD*").Order() : [];
 
-	private static async Task<CommandResult> RunCommandAsync(string fileName, string arguments)
-	{
-		using var process = new Process();
-		process.StartInfo.FileName = fileName;
-		process.StartInfo.Arguments = arguments;
-		process.StartInfo.UseShellExecute = false;
-		process.StartInfo.RedirectStandardOutput = true;
-		process.StartInfo.RedirectStandardError = true;
-		process.StartInfo.CreateNoWindow = true;
-
-		using var timeout = new CancellationTokenSource(_commandTimeout);
-		try
-		{
-			process.Start();
-			var output = process.StandardOutput.ReadToEndAsync(timeout.Token);
-			var error = process.StandardError.ReadToEndAsync(timeout.Token);
-			await process.WaitForExitAsync(timeout.Token);
-			return new CommandResult(process.ExitCode, await output + await error);
-		}
-		catch (OperationCanceledException)
-		{
-			process.Kill(entireProcessTree: true);
-			return new CommandResult(-1, $"{fileName} did not answer within {_commandTimeout.TotalSeconds:F0} seconds.");
-		}
-		catch (Win32Exception ex)
-		{
-			return new CommandResult(-1, ex.Message);
-		}
-	}
+	private static Task<CommandResult> RunCommandAsync(string fileName, string arguments) =>
+		ProcessRunner.RunAsync(fileName, arguments, _commandTimeout);
 
 	private static void PrintProblem(RequirementProblem problem)
 	{

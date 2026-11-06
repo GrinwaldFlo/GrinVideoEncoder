@@ -83,9 +83,16 @@ public partial class ReEncode : IDisposable
 	private async Task RefreshDb()
 	{
 		using var Context = new VideoDbContext();
-		_videos = await Context.GetVideosWithHighQualityRatioAsync(Threshold, MinSizeMb * 1000 * 1000, DateTime.Now.AddHours(-MinAgeH));
+		_videos = await Context.GetVideosWithHighQualityRatioAsync(Threshold, MinSizeMb * 1000 * 1000, DateTime.Now.AddHours(-MinAgeH), AppSettings.ReEncodeShowHighBitDepth);
 		await UpdateCount();
 		await InvokeAsync(StateHasChanged);
+	}
+
+	private async Task OnShowHighBitDepthChanged(bool show)
+	{
+		AppSettings.ReEncodeShowHighBitDepth = show;
+		ConfigManager.SaveConfig(AppSettings);
+		await RefreshDb();
 	}
 
 	private async Task StartReencoding()

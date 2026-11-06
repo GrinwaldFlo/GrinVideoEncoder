@@ -10,7 +10,11 @@
 	<RadzenFieldset Text="Paths" Style="width:600px">
 		<RadzenStack Gap="0.5rem">
 			<RadzenLabel Text="Indexer Path" />
-			<RadzenTextBox @bind-Value="AppSettings.IndexerPath" Style="width: 100%;" />
+			<RadzenTextBox @bind-Value="AppSettings.IndexerPath" Style="width: 100%;" Disabled="@_indexerPathLocked" />
+			@if (_indexerPathLocked)
+			{
+				<span class="setting-hint">Locked: @_indexedVideoCount videos are indexed under this path. Create a new configuration to index another folder.</span>
+			}
 
 			<RadzenLabel Text="Work Path (local)" />
 			<RadzenTextBox Value="@AppSettings.WorkPath" Style="width: 100%;" Disabled="true" />

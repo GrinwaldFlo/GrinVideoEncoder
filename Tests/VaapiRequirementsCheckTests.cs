@@ -1,4 +1,5 @@
 using GrinVideoEncoder.Startup;
+using GrinVideoEncoder.Utils;
 
 namespace Tests;
 

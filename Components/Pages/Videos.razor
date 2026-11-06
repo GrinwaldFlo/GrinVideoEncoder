@@ -39,6 +39,9 @@
 			<RadzenDataGridColumn Property="@nameof(VideoFile.QualityRatio)" Title="Quality" UniqueID="QualityRatio" FormatString="{0:F0}" Width="100px" />
 			<RadzenDataGridColumn Property="@nameof(VideoFile.CompressionFactor)" Title="Comp." UniqueID="CompressionFactor" FormatString="{0:F0}%" Width="80px" />
 			<RadzenDataGridColumn Property="@nameof(VideoFile.Fps)" Title="FPS" UniqueID="Fps" Width="80px" />
+			<RadzenDataGridColumn Property="@nameof(VideoFile.BitDepth)" Title="Bit depth" UniqueID="BitDepth" Width="90px">
+				<Template Context="data">@data.BitDepthFormatted</Template>
+			</RadzenDataGridColumn>
 			<RadzenDataGridColumn Property="@nameof(VideoFile.LastModified)" Title="Modif." UniqueID="LastModified" Width="150px" />
 			<RadzenDataGridColumn Property="@nameof(VideoFile.Sanity)" Title="Sanity" UniqueID="Sanity" Width="150px" />
 		</Columns>

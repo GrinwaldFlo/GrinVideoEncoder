@@ -51,6 +51,36 @@ public class GlobUtilsTests : IDisposable
 		Assert.Equal(Path.Combine(trash, "a", "b"), result);
 	}
 
+	[Theory]
+	[InlineData("other")]
+	[InlineData("..")]
+	public void GetTrashDirectory_VideoOutsideRoot_Throws(string outside)
+	{
+		string root = Path.Combine(_tempDir, "videos");
+		string trash = Path.Combine(_tempDir, "Trash");
+		string videoDirectory = outside == ".." ? _tempDir : Path.Combine(_tempDir, outside, "a");
+
+		Assert.Throws<InvalidOperationException>(() => GlobUtils.GetTrashDirectory(trash, root, videoDirectory));
+	}
+
+	[Fact]
+	public void GetTrashDirectory_SiblingWithSamePrefix_Throws()
+	{
+		string root = Path.Combine(_tempDir, "videos");
+		string trash = Path.Combine(_tempDir, "Trash");
+
+		Assert.Throws<InvalidOperationException>(() => GlobUtils.GetTrashDirectory(trash, root, root + "2"));
+	}
+
+	[Fact]
+	public void GetTrashDirectory_SubfolderStartingWithDots_KeepsStructure()
+	{
+		string root = Path.Combine(_tempDir, "videos");
+		string trash = Path.Combine(_tempDir, "Trash");
+
+		Assert.Equal(Path.Combine(trash, "..hidden"), GlobUtils.GetTrashDirectory(trash, root, Path.Combine(root, "..hidden")));
+	}
+
 	[Fact]
 	public void FormatFileSizeMb_MissingFile_ReturnsNotAvailable()
 	{

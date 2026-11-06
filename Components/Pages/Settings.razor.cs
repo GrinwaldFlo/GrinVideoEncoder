@@ -19,12 +19,26 @@ public partial class Settings
 	private List<string> _originalExtensions = [];
 	private List<string> _originalIgnoreFolders = [];
 
-	protected override void OnInitialized()
+	/// <summary>
+	/// The indexed videos are stored with their full path and trashed relative to the indexer path,
+	/// so the path must not change once there are videos.
+	/// </summary>
+	private bool _indexerPathLocked;
+	private int _indexedVideoCount;
+
+	protected override async Task OnInitializedAsync()
 	{
 		_originalIndexerPath = AppSettings.IndexerPath;
 		_originalExtensions = [.. AppSettings.VideoExtensions];
 		_originalIgnoreFolders = [.. AppSettings.IgnoreFolders];
+		await RefreshIndexerPathLock();
 		RefreshFolders();
+	}
+
+	private async Task RefreshIndexerPathLock()
+	{
+		_indexedVideoCount = await VideoDbContext.CountVideosAsync();
+		_indexerPathLocked = _indexedVideoCount > 0;
 	}
 
 	private void OnExtensionsChanged(string value)
@@ -41,13 +55,25 @@ public partial class Settings
 			.ToList();
 	}
 
-	private void Save()
+	private async Task Save()
 	{
 		try
 		{
-			ConfigManager.SaveConfig(AppSettings);
-
 			bool indexerPathChanged = !string.Equals(_originalIndexerPath, AppSettings.IndexerPath, StringComparison.Ordinal);
+			if (indexerPathChanged)
+			{
+				// Videos may have been indexed since the page was opened
+				await RefreshIndexerPathLock();
+				if (_indexerPathLocked)
+				{
+					AppSettings.IndexerPath = _originalIndexerPath;
+					_statusMessage = "Error: the indexer path cannot change while videos are indexed";
+					_statusStyle = BadgeStyle.Danger;
+					return;
+				}
+			}
+
+			ConfigManager.SaveConfig(AppSettings);
 			bool extensionsChanged = !_originalExtensions.SequenceEqual(AppSettings.VideoExtensions);
 			bool ignoreFoldersChanged = !_originalIgnoreFolders.SequenceEqual(AppSettings.IgnoreFolders);
 

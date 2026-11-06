@@ -23,6 +23,22 @@ public enum SanityStatus
 
 public partial class VideoFile
 {
+	/// <summary>
+	/// <see cref="BitDepth"/> of a video whose pixel format could not be read.
+	/// </summary>
+	public const int BIT_DEPTH_UNKNOWN = 0;
+
+	/// <summary>
+	/// Bits per color component of the video stream, such as 8 or 10. Null until the indexer has read it,
+	/// <see cref="BIT_DEPTH_UNKNOWN"/> if the file could not tell.
+	/// </summary>
+	public int? BitDepth { get; set; }
+
+	/// <summary>
+	/// True for videos above 8 bits. The encoders output 8 bits, so re-encoding them loses color precision.
+	/// </summary>
+	public bool IsHighBitDepth => BitDepth > 8;
+
 	public double? CompressionFactor => FileSizeCompressed.HasValue && FileSizeOriginal > 0
 		? (((double)FileSizeOriginal / FileSizeCompressed.Value) - 1) * 100.0
 		: null;

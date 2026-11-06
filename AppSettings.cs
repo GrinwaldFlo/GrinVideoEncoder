@@ -70,6 +70,9 @@ public class AppSettings : IAppSettings
 	/// </summary>
 	public string? VideosGridSettings { get; set; }
 
+	/// <inheritdoc/>
+	public bool ReEncodeShowHighBitDepth { get; set; }
+
 	/// <summary>
 	/// Initializes computed paths based on ConfigName. Must be called after ConfigName is set.
 	/// </summary>
