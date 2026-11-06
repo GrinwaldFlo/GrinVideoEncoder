@@ -127,6 +127,7 @@ public class VideoReencodeService(IAppSettings settings, LogMain log, LogFfmpeg 
 		if (result.Reason == VideoEncoder.ResultReason.Canceled)
 		{
 			video.Status = CompressionStatus.Original;
+			comm.Status.Status.OnNext("Canceled");
 			log.Warning("Encoding canceled", video);
 			Directory.Delete(tempDir, true);
 			return;
@@ -188,6 +189,7 @@ public class VideoReencodeService(IAppSettings settings, LogMain log, LogFfmpeg 
 		else if (new FileInfo(tempInputPath).Length < new FileInfo(tempOutputPath).Length)
 		{
 			video.Status = CompressionStatus.Bigger;
+			comm.Status.Status.OnNext("Bigger than original, kept original");
 			log.Warning("New video is bigger than original {Video} {OriginalSize:F0} [MB] <  {NewSize:F0} [MB]", video.FullPath, new FileInfo(tempInputPath).Length / (1024 * 1024.0), new FileInfo(tempOutputPath).Length / (1024 * 1024.0));
 			Directory.Delete(tempDir, true);
 		}
