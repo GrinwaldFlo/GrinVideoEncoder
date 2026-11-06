@@ -153,6 +153,9 @@ public class VideoReencodeService(IAppSettings settings, LogMain log, LogFfmpeg 
 		double? compressedFps = compressedInfo?.VideoStreams.FirstOrDefault()?.Framerate;
 		var originalCreationTime = new FileInfo(video.FullPath).CreationTime;
 		var originalLastWriteTime = new FileInfo(video.FullPath).LastWriteTime;
+		int originalBitDepth = originalInfo?.GetBitDepth() ?? VideoFile.BIT_DEPTH_UNKNOWN;
+		int compressedBitDepth = compressedInfo?.GetBitDepth() ?? VideoFile.BIT_DEPTH_UNKNOWN;
+		int? expectedBitDepth = VideoEncoder.GetExpectedOutputBitDepth(originalBitDepth);
 		double fpsTol = 2;
 		// Unreadable FPS is reported below as a media info failure, it must not trigger the slow full-file scan
 		bool hasFpsDiff = originalFps != null && compressedFps != null && Math.Abs(originalFps.Value - compressedFps.Value) > fpsTol;
@@ -177,6 +180,10 @@ public class VideoReencodeService(IAppSettings settings, LogMain log, LogFfmpeg 
 		else if (hasFpsDiff && max - min < fpsTol)
 		{
 			WriteError($"{video.FullPath} | FPS has changed {originalFps.Value:F2} / {compressedFps.Value:F2}");
+		}
+		else if (expectedBitDepth != null && compressedBitDepth < expectedBitDepth)
+		{
+			WriteError($"{video.FullPath} | Bit depth has been reduced {originalBitDepth} / {compressedBitDepth}, expected {expectedBitDepth}");
 		}
 		else if (new FileInfo(tempInputPath).Length < new FileInfo(tempOutputPath).Length)
 		{
@@ -251,6 +258,7 @@ public class VideoReencodeService(IAppSettings settings, LogMain log, LogFfmpeg 
 			text.AppendLine($"{"Resolution",-25} | {originalInfo?.VideoStreams.FirstOrDefault()?.Width}x{originalInfo?.VideoStreams.FirstOrDefault()?.Height} {"",-18} | {compressedInfo?.VideoStreams.FirstOrDefault()?.Width}x{compressedInfo?.VideoStreams.FirstOrDefault()?.Height}");
 			text.AppendLine($"{"FPS",-25} | {originalInfo?.VideoStreams.FirstOrDefault()?.Framerate:F3} {"",-25} | {compressedInfo?.VideoStreams.FirstOrDefault()?.Framerate:F3}");
 			text.AppendLine($"{"Total Pixels",-25} | {(originalInfo?.VideoStreams.FirstOrDefault()?.Width ?? 0) * (originalInfo?.VideoStreams.FirstOrDefault()?.Height ?? 0)} {"",-22} | {(compressedInfo?.VideoStreams.FirstOrDefault()?.Width ?? 0) * (compressedInfo?.VideoStreams.FirstOrDefault()?.Height ?? 0)}");
+			text.AppendLine($"{"Bit Depth",-25} | {originalBitDepth,-30} | {compressedBitDepth}");
 			text.AppendLine($"{"Video Bitrate",-25} | {originalInfo?.VideoStreams.FirstOrDefault()?.Bitrate} {"",-19} | {compressedInfo?.VideoStreams.FirstOrDefault()?.Bitrate}");
 			text.AppendLine($"{"Audio Bitrate",-25} | {originalInfo?.AudioStreams.FirstOrDefault()?.Bitrate} {"",-19} | {compressedInfo?.AudioStreams.FirstOrDefault()?.Bitrate}");
 			text.AppendLine($"{"Sample Rate",-25} | {originalInfo?.AudioStreams.FirstOrDefault()?.SampleRate} Hz {"",-19} | {compressedInfo?.AudioStreams.FirstOrDefault()?.SampleRate} Hz");

@@ -16,18 +16,22 @@ public class VaapiRequirementsCheckTests
 		string? ffprobe = FFPROBE,
 		CommandResult? encoders = null,
 		string[]? devices = null,
-		Func<string, CommandResult>? testEncode = null)
+		Func<string, CommandResult>? testEncode = null,
+		Func<string, CommandResult>? testEncode10Bit = null)
 	{
 		encoders ??= new CommandResult(0, ENCODERS_OK);
 		devices ??= [DEVICE];
 		testEncode ??= _ => new CommandResult(0, string.Empty);
+		testEncode10Bit ??= testEncode;
 
 		return new VaapiRequirementsCheck(
 			name => name == "ffmpeg" ? ffmpeg : ffprobe,
 			() => devices,
 			(_, arguments) => Task.FromResult(arguments.Contains("-encoders")
 				? encoders
-				: testEncode(devices.First(arguments.Contains))));
+				: arguments.Contains("format=p010")
+					? testEncode10Bit(devices.First(arguments.Contains))
+					: testEncode(devices.First(arguments.Contains))));
 	}
 
 	[Fact]
@@ -38,6 +42,29 @@ public class VaapiRequirementsCheckTests
 		Assert.True(result.IsMet);
 		Assert.Equal(DEVICE, result.Device);
 		Assert.Equal("/usr/bin", result.FfmpegDirectory);
+		Assert.True(result.SupportsMain10);
+	}
+
+	[Fact]
+	public async Task RunAsync_TenBitEncodeFails_StillMetWithoutMain10()
+	{
+		var result = await CreateCheck(testEncode10Bit: _ => new CommandResult(218, "[hevc_vaapi] No usable encoding profile found.")).RunAsync();
+
+		Assert.True(result.IsMet);
+		Assert.Equal(DEVICE, result.Device);
+		Assert.False(result.SupportsMain10);
+	}
+
+	[Fact]
+	public async Task RunAsync_TenBitTestedOnTheDeviceThatWorks()
+	{
+		var result = await CreateCheck(
+			devices: [DEVICE, DEVICE2],
+			testEncode: device => new CommandResult(device == DEVICE ? 1 : 0, string.Empty),
+			testEncode10Bit: device => new CommandResult(device == DEVICE2 ? 0 : 1, string.Empty)).RunAsync();
+
+		Assert.Equal(DEVICE2, result.Device);
+		Assert.True(result.SupportsMain10);
 	}
 
 	[Theory]
@@ -136,5 +163,13 @@ public class VaapiRequirementsCheckTests
 		Assert.Contains($"-vaapi_device {DEVICE2}", arguments);
 		Assert.Contains("-c:v hevc_vaapi", arguments);
 		Assert.Contains("-frames:v 1", arguments);
+	}
+
+	[Theory]
+	[InlineData(false, "format=nv12,hwupload")]
+	[InlineData(true, "format=p010,hwupload")]
+	public void BuildTestEncodeArguments_UploadsPixelFormatOfBitDepth(bool tenBit, string expected)
+	{
+		Assert.Contains(expected, VaapiRequirementsCheck.BuildTestEncodeArguments(DEVICE, tenBit));
 	}
 }

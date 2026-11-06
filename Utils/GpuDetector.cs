@@ -20,6 +20,11 @@ public class GpuDetector
 	/// </summary>
 	public static string VaapiDevice { get; set; } = "/dev/dri/renderD128";
 
+	/// <summary>
+	/// True if <see cref="VaapiDevice"/> can encode 10-bit HEVC (Main 10 profile), validated at startup.
+	/// </summary>
+	public static bool VaapiSupportsMain10 { get; set; }
+
 	public static GpuVendor DetectGpuVendor()
 	{
 		if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))

@@ -1,3 +1,4 @@
+using GrinVideoEncoder.Models;
 using GrinVideoEncoder.Services;
 using GrinVideoEncoder.Utils;
 
@@ -5,19 +6,46 @@ namespace Tests;
 
 public class VideoProcessorServiceTests
 {
-	[Fact]
-	public void GetVaapiOutputParameters_UsesEncoderAndQuality()
+	[Theory]
+	[InlineData(false)]
+	[InlineData(true)]
+	public void GetVaapiOutputParameters_UsesEncoderAndQuality(bool tenBit)
 	{
-		string[] parameters = VideoEncoder.GetVaapiOutputParameters(28);
+		string[] parameters = VideoEncoder.GetVaapiOutputParameters(28, tenBit);
 
 		Assert.Contains("-c:v hevc_vaapi", parameters);
 		Assert.Contains("-global_quality 28", parameters);
 	}
 
-	[Fact]
-	public void GetVaapiOutputParameters_NeverTagsHvc1_BecauseItCorruptsTheVideo()
+	[Theory]
+	[InlineData(false, "-vf format=nv12,hwupload")]
+	[InlineData(true, "-vf format=p010,hwupload")]
+	public void GetVaapiOutputParameters_UploadsPixelFormatOfBitDepth(bool tenBit, string expected)
 	{
-		Assert.DoesNotContain(VideoEncoder.GetVaapiOutputParameters(28), parameter => parameter.Contains("hvc1"));
+		string[] parameters = VideoEncoder.GetVaapiOutputParameters(28, tenBit);
+
+		Assert.Contains(expected, parameters);
+		Assert.Single(parameters, parameter => parameter.StartsWith("-vf"));
+	}
+
+	[Theory]
+	[InlineData(false)]
+	[InlineData(true)]
+	public void GetVaapiOutputParameters_NeverTagsHvc1_BecauseItCorruptsTheVideo(bool tenBit)
+	{
+		Assert.DoesNotContain(VideoEncoder.GetVaapiOutputParameters(28, tenBit), parameter => parameter.Contains("hvc1"));
+	}
+
+	[Theory]
+	[InlineData(VideoFile.BIT_DEPTH_UNKNOWN, true, 8)]
+	[InlineData(8, true, 8)]
+	[InlineData(10, true, 10)]
+	[InlineData(12, true, 10)]
+	[InlineData(10, false, 8)]
+	[InlineData(12, false, 8)]
+	public void GetVaapiOutputBitDepth_KeepsTenBitOnlyForHighBitDepthWithMain10(int sourceBitDepth, bool supportsMain10, int expected)
+	{
+		Assert.Equal(expected, VideoEncoder.GetVaapiOutputBitDepth(sourceBitDepth, supportsMain10));
 	}
 
 	[Fact]

@@ -81,14 +81,36 @@ public partial class VideoEncoder(int qualityLevel, LogFfmpeg log, BehaviorSubje
 	/// the driver writes in the stream and keeps only the initial ones, which do not match. Every frame of the
 	/// video decodes as garbage, while FFmpeg reports success and duration, resolution and FPS stay correct.
 	/// </summary>
-	internal static string[] GetVaapiOutputParameters(int qualityLevel) =>
+	/// <param name="tenBit">True to encode in 10 bits (Main 10 profile), see <see cref="GetVaapiOutputBitDepth"/>.</param>
+	internal static string[] GetVaapiOutputParameters(int qualityLevel, bool tenBit) =>
 	[
-		"-vf format=nv12,hwupload",
+		$"-vf format={GetVaapiPixelFormat(tenBit)},hwupload",
 		"-c:v hevc_vaapi",
 		"-rc_mode CQP",
 		$"-global_quality {qualityLevel}",
 		"-g 60",
 	];
+
+	/// <summary>
+	/// Pixel format uploaded to the GPU: hevc_vaapi encodes in the bit depth of what it receives.
+	/// </summary>
+	internal static string GetVaapiPixelFormat(bool tenBit) => tenBit ? "p010" : "nv12";
+
+	/// <summary>
+	/// Bit depth hevc_vaapi produces: 10 bits for a source above 8 bits if the GPU supports Main 10, else 8 bits.
+	/// A 12-bit source is reduced to 10 bits, since HEVC Main 10 is the highest profile used.
+	/// </summary>
+	internal static int GetVaapiOutputBitDepth(int sourceBitDepth, bool supportsMain10) =>
+		sourceBitDepth > 8 && supportsMain10 ? 10 : 8;
+
+	/// <summary>
+	/// Bit depth the encoding of a source must produce, or null if this GPU path does not guarantee one.
+	/// Only VA-API is checked: the Windows encoders are not validated for high bit depth.
+	/// </summary>
+	public static int? GetExpectedOutputBitDepth(int sourceBitDepth) =>
+		GpuDetector.DetectGpuVendor() == GpuVendor.Vaapi
+			? GetVaapiOutputBitDepth(sourceBitDepth, GpuDetector.VaapiSupportsMain10)
+			: null;
 
 	internal static TimeSpan? ParseFfmpegToTimeSpan(string? log)
 	{
@@ -188,8 +210,14 @@ public partial class VideoEncoder(int qualityLevel, LogFfmpeg log, BehaviorSubje
 				break;
 
 			case GpuVendor.Vaapi:
+				int sourceBitDepth = mediaInfo.GetBitDepth();
+				bool tenBit = GetVaapiOutputBitDepth(sourceBitDepth, GpuDetector.VaapiSupportsMain10) == 10;
+				if (sourceBitDepth > 8 && !tenBit)
+				{
+					log.Warning("{BitDepth}-bit source encoded to 8-bit: the GPU does not support HEVC Main 10", sourceBitDepth);
+				}
 				conversion.AddParameter($"-vaapi_device {GpuDetector.VaapiDevice}", ParameterPosition.PreInput);
-				foreach (string parameter in GetVaapiOutputParameters(qualityLevel))
+				foreach (string parameter in GetVaapiOutputParameters(qualityLevel, tenBit))
 				{
 					conversion.AddParameter(parameter);
 				}

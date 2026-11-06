@@ -30,7 +30,9 @@ public static class EncoderRequirements
 
 		FFmpeg.SetExecutablesPath(result.FfmpegDirectory!);
 		GpuDetector.VaapiDevice = result.Device!;
-		Console.WriteLine($"Encoding setup OK: hevc_vaapi on {result.Device}, FFmpeg from {result.FfmpegDirectory}");
+		GpuDetector.VaapiSupportsMain10 = result.SupportsMain10;
+		string bitDepths = result.SupportsMain10 ? "8 and 10-bit" : "8-bit only, high bit depth videos are reduced to 8-bit";
+		Console.WriteLine($"Encoding setup OK: hevc_vaapi on {result.Device} ({bitDepths}), FFmpeg from {result.FfmpegDirectory}");
 		return true;
 	}
 

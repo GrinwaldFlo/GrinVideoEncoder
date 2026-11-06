@@ -5,7 +5,8 @@ public sealed record RequirementProblem(string Title, string Detail, IReadOnlyLi
 /// <summary>
 /// Outcome of the check: either a problem to report, or the ffmpeg folder and VA-API device to use.
 /// </summary>
-public sealed record VaapiCheckResult(string? FfmpegDirectory, string? Device, RequirementProblem? Problem)
+/// <param name="SupportsMain10">True if the device can also encode 10-bit HEVC (Main 10 profile).</param>
+public sealed record VaapiCheckResult(string? FfmpegDirectory, string? Device, RequirementProblem? Problem, bool SupportsMain10 = false)
 {
 	public bool IsMet => Problem == null;
 }
@@ -64,9 +65,10 @@ public class VaapiRequirementsCheck(
 		"  ls -l /dev/dri",
 	];
 
-	internal static string BuildTestEncodeArguments(string device) =>
+	/// <param name="tenBit">True to test the 10-bit encoding (Main 10 profile) instead of the 8-bit one.</param>
+	internal static string BuildTestEncodeArguments(string device, bool tenBit = false) =>
 		$"-hide_banner -nostdin -loglevel error -vaapi_device {device} -f lavfi -i testsrc2=size=640x360:rate=24 "
-		+ "-frames:v 1 -vf format=nv12,hwupload -c:v hevc_vaapi -f null -";
+		+ $"-frames:v 1 -vf format={VideoEncoder.GetVaapiPixelFormat(tenBit)},hwupload -c:v hevc_vaapi -f null -";
 
 	public async Task<VaapiCheckResult> RunAsync()
 	{
@@ -103,7 +105,9 @@ public class VaapiRequirementsCheck(
 			var testEncode = await runCommand(ffmpeg, BuildTestEncodeArguments(device));
 			if (testEncode.ExitCode == 0)
 			{
-				return new VaapiCheckResult(ffmpegDirectory, device, null);
+				// 10-bit is optional: without it, high bit depth videos are encoded to 8 bits
+				var testEncode10Bit = await runCommand(ffmpeg, BuildTestEncodeArguments(device, tenBit: true));
+				return new VaapiCheckResult(ffmpegDirectory, device, null, testEncode10Bit.ExitCode == 0);
 			}
 
 			accessDenied |= testEncode.Output.Contains("Permission denied", StringComparison.OrdinalIgnoreCase);

@@ -88,6 +88,12 @@ public partial class ReEncode : IDisposable
 		await InvokeAsync(StateHasChanged);
 	}
 
+	/// <summary>
+	/// Label of the high bit depth filter, telling what the encoding keeps of those videos on this GPU.
+	/// </summary>
+	private static string HighBitDepthLabel =>
+		$"Show videos above 8-bit (encoded to {(GpuDetector.VaapiSupportsMain10 ? 10 : 8)}-bit)";
+
 	private async Task OnShowHighBitDepthChanged(bool show)
 	{
 		AppSettings.ReEncodeShowHighBitDepth = show;

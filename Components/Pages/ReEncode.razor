@@ -10,7 +10,7 @@
     <RadzenNumeric @bind-Value=MinAgeH TValue="double" Step="10" Style="width: 200px;" Change="RefreshDb" />
     <span class="reencode-option">
         <RadzenCheckBox Value=@AppSettings.ReEncodeShowHighBitDepth TValue="bool" Name="chkShowHighBitDepth" Change="OnShowHighBitDepthChanged" />
-        <RadzenLabel Text="Show videos above 8-bit (re-encoded to 8-bit)" Component="chkShowHighBitDepth" />
+        <RadzenLabel Text=@HighBitDepthLabel Component="chkShowHighBitDepth" />
     </span>
     <RadzenButton Text=@($"Start Re-encoding {_selectedVideoCount} videos") Click="StartReencoding" ButtonStyle="ButtonStyle.Danger" Visible=@(_videos.Count > 0) />
 </div>
