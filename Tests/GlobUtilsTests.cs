@@ -64,6 +64,87 @@ public class GlobUtilsTests : IDisposable
 	}
 
 	[Fact]
+	public void RebaseDirectory_SubfolderOfOldRoot_MovesToNewRoot()
+	{
+		string oldRoot = Path.Combine(_tempDir, "old");
+		string newRoot = Path.Combine(_tempDir, "new");
+
+		Assert.Equal(Path.Combine(newRoot, "a", "b"), GlobUtils.RebaseDirectory(oldRoot, newRoot, Path.Combine(oldRoot, "a", "b")));
+	}
+
+	[Fact]
+	public void RebaseDirectory_OldRootItself_ReturnsNewRootWithoutTrailingSeparator()
+	{
+		string oldRoot = Path.Combine(_tempDir, "old");
+		string newRoot = Path.Combine(_tempDir, "new");
+
+		Assert.Equal(newRoot, GlobUtils.RebaseDirectory(oldRoot + Path.DirectorySeparatorChar, newRoot + Path.DirectorySeparatorChar, oldRoot));
+	}
+
+	[Fact]
+	public void RebaseDirectory_SiblingWithSamePrefix_ReturnsNull()
+	{
+		string oldRoot = Path.Combine(_tempDir, "old");
+
+		Assert.Null(GlobUtils.RebaseDirectory(oldRoot, Path.Combine(_tempDir, "new"), oldRoot + "2"));
+	}
+
+	[Theory]
+	[InlineData(@"V:\Series", @"V:\Series\Kimmy\S1")]
+	[InlineData(@"V:\Series", @"v:\series\Kimmy\S1")]
+	[InlineData(@"V:\Series\", @"V:\Series\Kimmy/S1")]
+	[InlineData(@"V:\", @"V:\Kimmy\S1")]
+	[InlineData(@"\\nas\videos", @"\\NAS\Videos\Kimmy\S1")]
+	public void RebaseDirectory_WindowsPath_MovesToNewRootIgnoringCase(string oldRoot, string directory)
+	{
+		string newRoot = Path.Combine(_tempDir, "new");
+
+		Assert.Equal(Path.Combine(newRoot, "Kimmy", "S1"), GlobUtils.RebaseDirectory(oldRoot, newRoot, directory));
+	}
+
+	[Fact]
+	public void RebaseDirectory_WindowsPathIsRoot_ReturnsNewRoot()
+	{
+		string newRoot = Path.Combine(_tempDir, "new");
+
+		Assert.Equal(newRoot, GlobUtils.RebaseDirectory(@"V:\Series", newRoot, @"v:\SERIES\"));
+	}
+
+	[Theory]
+	[InlineData(@"V:\Series2\Kimmy")]
+	[InlineData(@"W:\Series\Kimmy")]
+	[InlineData(@"V:\Series\..\Other")]
+	[InlineData(@"V:\")]
+	public void RebaseDirectory_WindowsPathOutsideOldRoot_ReturnsNull(string directory)
+	{
+		Assert.Null(GlobUtils.RebaseDirectory(@"V:\Series", Path.Combine(_tempDir, "new"), directory));
+	}
+
+	[Theory]
+	[InlineData(@"V:\Series", true)]
+	[InlineData(@"v:/Series", true)]
+	[InlineData("V:", true)]
+	[InlineData(@"\\nas\videos", true)]
+	[InlineData("/home/user/videos", false)]
+	[InlineData("videos", false)]
+	[InlineData("V:videos", false)]
+	public void IsWindowsStylePath_DetectsDriveAndUncPaths(string path, bool expected)
+	{
+		Assert.Equal(expected, GlobUtils.IsWindowsStylePath(path));
+	}
+
+	[Theory]
+	[InlineData("a", true)]
+	[InlineData("", true)]
+	[InlineData("..", false)]
+	public void IsInsideDirectory_ReturnsWhetherFolderIsUnderRoot(string relative, bool expected)
+	{
+		string root = Path.Combine(_tempDir, "videos");
+
+		Assert.Equal(expected, GlobUtils.IsInsideDirectory(root, Path.Combine(root, relative)));
+	}
+
+	[Fact]
 	public void GetTrashDirectory_SiblingWithSamePrefix_Throws()
 	{
 		string root = Path.Combine(_tempDir, "videos");

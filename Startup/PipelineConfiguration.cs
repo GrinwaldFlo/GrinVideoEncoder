@@ -39,6 +39,29 @@ public static class PipelineConfiguration
 		await VideoDbContext.CheckpointWalAsync(logMain);
 	}
 
+	/// <summary>
+	/// Asks for the new location of the indexed folder if it was moved, and saves it.
+	/// </summary>
+	/// <returns>False if the folder is missing and no new location was given, so the application must close.</returns>
+	public static async Task<bool> EnsureIndexerPathAsync(this WebApplication app)
+	{
+		var settings = app.Services.GetRequiredService<AppSettings>();
+		var check = new IndexerPathCheck(Console.In, Console.Out, Directory.Exists, File.Exists,
+			VideoDbContext.GetRandomVideosAsync, VideoDbContext.RelocateDirectoriesAsync);
+
+		string? indexerPath = await check.RunAsync(settings.IndexerPath);
+		if (indexerPath is null)
+			return false;
+
+		if (indexerPath != settings.IndexerPath)
+		{
+			settings.IndexerPath = indexerPath;
+			ConfigManager.SaveConfig(settings);
+		}
+
+		return true;
+	}
+
 	public static void RegisterStartupBanner(this WebApplication app)
 	{
 		StaticWebAssetsLoader.UseStaticWebAssets(app.Environment, app.Configuration);

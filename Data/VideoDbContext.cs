@@ -84,6 +84,50 @@ public class VideoDbContext : DbContext
 		}
 	}
 
+	/// <summary>
+	/// Picks random indexed videos, leaving out the ones marked <see cref="CompressionStatus.Removed"/>.
+	/// </summary>
+	internal static async Task<List<VideoFile>> GetRandomVideosAsync(int count)
+	{
+		await using var context = new VideoDbContext();
+		return await context.VideoFiles
+			.AsNoTracking()
+			.Where(v => v.Status != CompressionStatus.Removed)
+			.OrderBy(_ => EF.Functions.Random())
+			.Take(count)
+			.ToListAsync();
+	}
+
+	/// <summary>
+	/// Moves every video inside <paramref name="oldRoot"/> to the same relative folder in <paramref name="newRoot"/>.
+	/// Videos outside <paramref name="oldRoot"/> are left as they are.
+	/// </summary>
+	/// <returns>Number of videos updated.</returns>
+	internal static async Task<int> RelocateDirectoriesAsync(string oldRoot, string newRoot)
+	{
+		await using var context = new VideoDbContext();
+		var directories = await context.VideoFiles
+			.Select(v => v.DirectoryPath)
+			.Distinct()
+			.ToListAsync();
+
+		await using var transaction = await context.Database.BeginTransactionAsync();
+		int updated = 0;
+		foreach (string directory in directories)
+		{
+			string? newDirectory = GlobUtils.RebaseDirectory(oldRoot, newRoot, directory);
+			if (newDirectory is null || newDirectory == directory)
+				continue;
+
+			updated += await context.VideoFiles
+				.Where(v => v.DirectoryPath == directory)
+				.ExecuteUpdateAsync(s => s.SetProperty(v => v.DirectoryPath, newDirectory));
+		}
+
+		await transaction.CommitAsync();
+		return updated;
+	}
+
 	internal static void SetPath(string databasePath)
 	{
 		DbPath = databasePath;

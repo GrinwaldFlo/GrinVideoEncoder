@@ -40,7 +40,9 @@ public static class ConfigManager
 
 	public static void SaveConfig(AppSettings settings)
 	{
-		if(!string.IsNullOrEmpty(settings.IndexerPath))
+		// A path from Windows is kept as is on Linux, where it would become relative to the current folder
+		bool isForeignWindowsPath = !OperatingSystem.IsWindows() && GlobUtils.IsWindowsStylePath(settings.IndexerPath);
+		if (!string.IsNullOrEmpty(settings.IndexerPath) && !isForeignWindowsPath)
 			settings.IndexerPath = Path.GetFullPath(settings.IndexerPath);
 		string dir = Path.GetDirectoryName(settings.ConfigFilePath)!;
 		Directory.CreateDirectory(dir);

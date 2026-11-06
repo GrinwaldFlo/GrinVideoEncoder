@@ -11,6 +11,9 @@ builder.AddApplicationServices(appSettings);
 var app = builder.Build();
 app.ConfigurePipeline();
 await app.InitializeDatabaseAsync();
+if (!await app.EnsureIndexerPathAsync())
+	return 1;
+
 app.RegisterStartupBanner();
 
 await app.RunAsync();
