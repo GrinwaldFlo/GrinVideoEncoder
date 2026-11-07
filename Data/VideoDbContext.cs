@@ -50,9 +50,15 @@ public class VideoDbContext : DbContext
 		return await context.VideoFiles.CountAsync();
 	}
 
+	/// <summary>
+	/// Original videos whose quality ratio is above <paramref name="threshold"/>, so re-encoding them should save space.
+	/// </summary>
+	/// <param name="minAge">Videos modified more recently are left out, as they may still be edited or copied.</param>
 	/// <param name="includeHighBitDepth">False to leave out the videos above 8 bits, see <see cref="VideoFile.IsHighBitDepth"/>.</param>
-	public async Task<List<VideoFile>> GetVideosWithHighQualityRatioAsync(double threshold, double minSizeByte, DateTime maxLastModifiedTime, bool includeHighBitDepth)
+	public async Task<List<VideoFile>> GetReEncodeCandidatesAsync(double threshold, double minSizeByte, TimeSpan minAge, bool includeHighBitDepth)
 	{
+		// LastModified is stored in UTC
+		DateTime maxLastModifiedTime = DateTime.UtcNow - minAge;
 		return await VideoFiles
 			.Where(v => v.Status == CompressionStatus.Original)
 			.AsNoTracking()

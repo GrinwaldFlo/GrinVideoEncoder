@@ -47,7 +47,7 @@ public class VideoIndexerService : BackgroundService
 		}
 	}
 
-	private async Task RunIndexing(CancellationToken stoppingToken)
+	internal async Task RunIndexing(CancellationToken stoppingToken)
 	{
 		if (string.IsNullOrEmpty(_settings.IndexerPath))
 		{
@@ -195,6 +195,8 @@ public class VideoIndexerService : BackgroundService
 		directories.Push(_settings.IndexerPath);
 		int indexedCount = 0;
 		var foundFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		// Their videos were not seen, which does not mean they were deleted
+		var unreadDirectories = new List<string>();
 		await LoadCurrentFilesHashSetAsync();
 
 		while (directories.Count > 0)
@@ -225,10 +227,12 @@ public class VideoIndexerService : BackgroundService
 			}
 			catch (UnauthorizedAccessException)
 			{
+				unreadDirectories.Add(currentDir);
 				_log.Warning("Skipping directory due to access denied: {DirectoryPath}", currentDir);
 			}
 			catch (Exception ex)
 			{
+				unreadDirectories.Add(currentDir);
 				_log.Error(ex, "Error scanning directory: {DirectoryPath}", currentDir);
 			}
 		}
@@ -237,23 +241,29 @@ public class VideoIndexerService : BackgroundService
 
 		// Clean up database entries for files that no longer exist
 		if (!stoppingToken.IsCancellationRequested)
-			await CleanMissingFiles(foundFiles, stoppingToken);
+			await CleanMissingFiles(foundFiles, unreadDirectories, stoppingToken);
 
 		// Checkpoint WAL after scanning to commit all indexed files to the main database
 		await VideoDbContext.CheckpointWalAsync(_log);
 	}
 
-	private async Task CleanMissingFiles(HashSet<string> foundFiles, CancellationToken stoppingToken)
+	/// <summary>
+	/// Removes the videos of the indexed folder that the scan did not find.
+	/// </summary>
+	/// <param name="unreadDirectories">Folders the scan could not read: their videos are kept.</param>
+	private async Task CleanMissingFiles(HashSet<string> foundFiles, List<string> unreadDirectories, CancellationToken stoppingToken)
 	{
 		await using var context = new VideoDbContext();
 
+		// A text prefix is not enough: /videos2 starts like /videos but is not inside it
 		var dbFiles = await context.VideoFiles
-			.Where(v => v.DirectoryPath.StartsWith(_settings.IndexerPath))
-			.Select(v => new { v.Id, FullPath = v.DirectoryPath + Path.DirectorySeparatorChar + v.Filename })
+			.Select(v => new { v.Id, v.DirectoryPath, v.Filename })
 			.ToListAsync(stoppingToken);
 
 		var missingFileIds = dbFiles
-			.Where(f => !foundFiles.Contains(f.FullPath))
+			.Where(f => GlobUtils.IsInsideDirectory(_settings.IndexerPath, f.DirectoryPath)
+				&& !unreadDirectories.Any(dir => GlobUtils.IsInsideDirectory(dir, f.DirectoryPath))
+				&& !foundFiles.Contains(Path.Combine(f.DirectoryPath, f.Filename)))
 			.Select(f => f.Id)
 			.ToList();
 

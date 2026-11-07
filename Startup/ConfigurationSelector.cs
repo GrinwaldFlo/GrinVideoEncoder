@@ -26,7 +26,7 @@ public static class ConfigurationSelector
 		return appSettings;
 	}
 
-	private static string? GetConfigFromArgs(string[] args)
+	internal static string? GetConfigFromArgs(string[] args)
 	{
 		for (int i = 0; i < args.Length; i++)
 		{
@@ -82,12 +82,25 @@ public static class ConfigurationSelector
 		return null;
 	}
 
+	/// <summary>
+	/// Finds the configuration folder matching <paramref name="requested"/>, ignoring the case. The folder must then be opened with
+	/// the returned name: on a case-sensitive file system, another case does not open it.
+	/// </summary>
+	/// <returns>The name of the folder, or null if there is none.</returns>
+	internal static string? FindExistingConfig(string requested, IEnumerable<string> available)
+	{
+		var names = available.ToList();
+		return names.FirstOrDefault(name => name == requested)
+			?? names.FirstOrDefault(name => string.Equals(name, requested, StringComparison.OrdinalIgnoreCase));
+	}
+
 	private static AppSettings LoadOrCreateConfig(string configName, List<string> availableConfigs)
 	{
-		if (availableConfigs.Contains(configName, StringComparer.OrdinalIgnoreCase))
+		string? existingConfig = FindExistingConfig(configName, availableConfigs);
+		if (existingConfig is not null)
 		{
-			var settings = ConfigManager.LoadConfig(configName);
-			Console.WriteLine($"Loaded configuration: {configName}");
+			var settings = ConfigManager.LoadConfig(existingConfig);
+			Console.WriteLine($"Loaded configuration: {existingConfig}");
 			return settings;
 		}
 

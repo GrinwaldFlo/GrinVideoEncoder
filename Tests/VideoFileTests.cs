@@ -459,4 +459,24 @@ public class VideoFileComputedPropertiesTests
 
 		Assert.Null(video.QualityRatioCompressed);
 	}
+
+	/// <summary>
+	/// An FPS of 0 comes from unreadable metadata: it must not give an infinite ratio that ranks the video first for re-encoding.
+	/// </summary>
+	[Fact]
+	public void QualityRatios_FpsIsZero_ReturnNull()
+	{
+		var video = new VideoFile
+		{
+			FileSizeOriginal = 10_000_000,
+			FileSizeCompressed = 5_000_000,
+			DurationSeconds = 100,
+			Fps = 0,
+			Width = 1920,
+			Height = 1080
+		};
+
+		Assert.Null(video.QualityRatioOriginal);
+		Assert.Null(video.QualityRatioCompressed);
+	}
 }

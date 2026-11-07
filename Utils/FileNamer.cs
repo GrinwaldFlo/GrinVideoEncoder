@@ -18,7 +18,7 @@ public class FileNamer
 		FailedPath = GlobUtils.EnsureUniqueFilename(Path.Combine(settings.FailedPath, _fileInfo.Name));
 		ProcessingPath = GlobUtils.EnsureUniqueFilename(Path.Combine(settings.ProcessingPath, _fileInfo.Name));
 		OutputPath = GlobUtils.EnsureUniqueFilename(Path.Combine(settings.OutputPath, NewFileName));
-		TempPath = GlobUtils.EnsureUniqueFilename(Path.Combine(settings.TempPath, _fileInfo.Name));
+		TempPath = GlobUtils.EnsureUniqueFilename(Path.Combine(settings.TempPath, NewFileName));
 		TempFirstPassPath = GlobUtils.EnsureUniqueFilename(Path.Combine(settings.TempPath, $"{filenameNoExt}_firstPass.mp4"));
 		TrashPath = GlobUtils.EnsureUniqueFilename(Path.Combine(settings.TrashPath, _fileInfo.Name));
 		StatFileName = GlobUtils.EnsureUniqueFilename(Path.Combine(settings.LogPath, "Stats", $"{filenameNoExt}_stat.log"));
@@ -55,7 +55,7 @@ public class FileNamer
 	public string StatFileName { get; private set; }
 
 	/// <summary>
-	/// Partial file while being processed.
+	/// Partial file while being processed. Always an mp4, the only container the encoder writes.
 	/// </summary>
 	public string TempPath { get; private set; }
 

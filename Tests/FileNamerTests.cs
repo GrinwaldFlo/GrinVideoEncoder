@@ -97,14 +97,14 @@ public class FileNamerTests : IDisposable
 	}
 
 	[Fact]
-	public void TempPath_ContainsOriginalFilename()
+	public void TempPath_UsesTheNewFileName()
 	{
 		string inputPath = Path.Combine(_tempDir, "raw.mp4");
 		File.WriteAllText(inputPath, "dummy");
 
 		var namer = new FileNamer(_settings, inputPath);
 
-		Assert.Contains("raw.mp4", namer.TempPath);
+		Assert.Equal(namer.NewFileName, Path.GetFileName(namer.TempPath));
 		Assert.StartsWith(_settings.TempPath, namer.TempPath);
 	}
 
@@ -146,5 +146,23 @@ public class FileNamerTests : IDisposable
 	public void NewFilePrefix_IsCorrectConstant()
 	{
 		Assert.Equal("_recoded.mp4", FileNamer.NEW_FILE_PREFIX);
+	}
+
+	/// <summary>
+	/// The encoder only writes mp4 files: the drop folder must encode any input to an mp4 temp file.
+	/// </summary>
+	[Theory]
+	[InlineData("movie.mkv")]
+	[InlineData("movie.MP4")]
+	[InlineData("movie.avi")]
+	public void TempPath_IsAnMp4File(string inputName)
+	{
+		string inputPath = Path.Combine(_tempDir, inputName);
+		File.WriteAllText(inputPath, "dummy");
+
+		var namer = new FileNamer(_settings, inputPath);
+
+		Assert.EndsWith(".mp4", namer.TempPath, StringComparison.Ordinal);
+		Assert.StartsWith(_settings.TempPath, namer.TempPath);
 	}
 }

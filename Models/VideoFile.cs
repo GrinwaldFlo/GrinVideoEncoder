@@ -81,7 +81,7 @@ public partial class VideoFile
 	/// Quality ratio for compressed file normalized by resolution (bytes per pixel per second).
 	/// Lower values indicate more compression.
 	/// </summary>
-	public double? QualityRatioCompressed => FileSizeCompressed.HasValue && DurationSeconds.HasValue && Fps.HasValue && DurationSeconds > 0 && TotalPixels.HasValue
+	public double? QualityRatioCompressed => FileSizeCompressed.HasValue && DurationSeconds > 0 && Fps > 0 && TotalPixels.HasValue
 		? (double)FileSizeCompressed.Value / DurationSeconds.Value / TotalPixels.Value * 1000.0 * (30.0 / Fps.Value)
 		: null;
 
@@ -89,7 +89,7 @@ public partial class VideoFile
 	/// Quality ratio for original file normalized by resolution (bytes per pixel per second).
 	/// Higher values may indicate over-quality suitable for re-encoding.
 	/// </summary>
-	public double? QualityRatioOriginal => DurationSeconds.HasValue && DurationSeconds > 0 && Fps.HasValue && TotalPixels.HasValue
+	public double? QualityRatioOriginal => DurationSeconds > 0 && Fps > 0 && TotalPixels.HasValue
 		? (double)FileSizeOriginal / DurationSeconds.Value / TotalPixels.Value * 1000.0 * (30.0 / Fps.Value)
 		: null;
 

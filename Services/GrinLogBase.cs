@@ -13,18 +13,65 @@ public abstract class GrinLogBase(string path, string name)
 			.WriteTo.Console()
 			.CreateLogger();
 
-	public List<string> History { get; } = [];
+	/// <summary>
+	/// Number of lines kept by <see cref="GetHistory"/>.
+	/// </summary>
+	public const int HISTORY_SIZE = 5000;
 
-	private static string GetSerilogPropertyName(string template, int index)
+	// Written by the background services and FFmpeg at the same time, read by the UI
+	private readonly Lock _historyLock = new();
+	private readonly Queue<string> _history = new();
+
+	/// <returns>A copy of the last <see cref="HISTORY_SIZE"/> lines, oldest first.</returns>
+	public List<string> GetHistory()
+	{
+		lock (_historyLock)
+			return [.. _history];
+	}
+
+	/// <summary>
+	/// Replaces the Serilog placeholders of <paramref name="template"/> by <paramref name="args"/>, in order, keeping their format such as {Size:F2}.
+	/// Never throws: a template that does not match its arguments is returned with the arguments appended, as Serilog also accepts it.
+	/// </summary>
+	internal static string FormatLine(string template, object?[]? args)
+	{
+		if (args is null || args.Length == 0)
+			return template;
+
+		string formatted = template;
+		for (int i = 0; i < args.Length; i++)
+		{
+			string? placeholder = GetSerilogPlaceholder(template, i);
+			if (placeholder is null)
+				break;
+			int formatStart = placeholder.IndexOf(':');
+			string format = formatStart < 0 ? string.Empty : placeholder[formatStart..];
+			formatted = formatted.Replace("{" + placeholder + "}", "{" + i + format + "}");
+		}
+
+		try
+		{
+			return string.Format(formatted, args);
+		}
+		catch (FormatException)
+		{
+			return $"{template} [{string.Join(", ", args)}]";
+		}
+	}
+
+	/// <returns>The text between the braces of the placeholder at <paramref name="index"/>, or null if there is none.</returns>
+	private static string? GetSerilogPlaceholder(string template, int index)
 	{
 		int count = -1;
 		int start = 0;
 		while (true)
 		{
 			int open = template.IndexOf('{', start);
-			if (open == -1) return index.ToString();
+			if (open == -1)
+				return null;
 			int close = template.IndexOf('}', open);
-			if (close == -1) return index.ToString();
+			if (close == -1)
+				return null;
 			count++;
 			if (count == index)
 				return template.Substring(open + 1, close - open - 1);
@@ -34,28 +81,14 @@ public abstract class GrinLogBase(string path, string name)
 
 	private void AddLine(string line, params object?[]? args)
 	{
-		string str;
-		if(args != null && args.Length > 0)
+		string text = $"{DateTime.Now} - {FormatLine(line, args)}";
+		lock (_historyLock)
 		{
-			string formattedLine = line;
-			if (args != null && args.Length > 0)
-			{
-				for (int i = 0; i < args.Length; i++)
-				{
-					formattedLine = formattedLine.Replace("{" + GetSerilogPropertyName(line, i) + "}", "{" + i + "}");
-				}
-			}
-			str = args == null ? line : string.Format(formattedLine, args);
+			_history.Enqueue(text);
+			if (_history.Count > HISTORY_SIZE)
+				_history.Dequeue();
 		}
-		else
-		{
-			str = line;
-		}
-
-		History.Add($"{DateTime.Now} - {str}");
-		if (History.Count > 5000)
-			History.RemoveAt(0);
-		LastLine.OnNext($"{DateTime.Now} - {str}");
+		LastLine.OnNext(text);
 	}
 
 	public void Information(string messageTemplate, params object?[]? args)

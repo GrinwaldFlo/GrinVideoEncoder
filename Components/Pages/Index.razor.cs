@@ -68,7 +68,7 @@ public partial class Index : IDisposable
 	{
 		if (console == null) return;
 
-		foreach (string line in v.History.ToList())
+		foreach (string line in v.GetHistory())
 		{
 			await console.LogAsync(line);
 		}

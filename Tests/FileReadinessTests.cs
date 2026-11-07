@@ -78,8 +78,9 @@ public class FileReadinessTests : IDisposable
 	[Fact]
 	public async Task WaitForFile_Canceled_ReturnsFalseOrThrowsCanceled()
 	{
-		string filePath = Path.Combine(_tempDir, "empty.mp4");
-		File.WriteAllText(filePath, string.Empty); // never ready: an empty file is not accepted
+		string filePath = Path.Combine(_tempDir, "locked.mp4");
+		File.WriteAllText(filePath, "content");
+		using var writer = File.Open(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None); // never ready while locked
 		using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
 
 		try
@@ -90,5 +91,18 @@ public class FileReadinessTests : IDisposable
 		{
 			// Task.Delay throws when canceled during the wait, which is also a correct end
 		}
+	}
+
+	/// <summary>
+	/// An empty file must not block the drop folder forever: once nothing writes to it, encoding fails and it goes to Failed.
+	/// </summary>
+	[Fact]
+	public async Task WaitForFile_StableEmptyFile_ReturnsTrue()
+	{
+		string filePath = Path.Combine(_tempDir, "empty.mp4");
+		File.WriteAllText(filePath, string.Empty);
+		using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+
+		Assert.True(await VideoProcessorService.WaitForFile(filePath, _pollDelay, cts.Token));
 	}
 }

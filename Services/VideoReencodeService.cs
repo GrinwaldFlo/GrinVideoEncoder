@@ -89,7 +89,11 @@ public class VideoReencodeService(IAppSettings settings, LogMain log, LogFfmpeg 
 	private async Task ReencodeVideoAsync(VideoFile video)
 	{
 		if (comm.VideoProcessToken.Token.IsCancellationRequested)
+		{
+			// The video was already marked Processing: leaving it so would keep it out of the queue until a restart
+			video.Status = CompressionStatus.Original;
 			return;
+		}
 
 		string tempDir = Path.GetFullPath(Path.Combine(settings.ProcessingPath, Guid.NewGuid().ToString()));
 		string tempInputPath = Path.Combine(tempDir, video.Filename);
@@ -107,16 +111,17 @@ public class VideoReencodeService(IAppSettings settings, LogMain log, LogFfmpeg 
 		catch (OperationCanceledException)
 		{
 			video.Status = CompressionStatus.Original;
-			log.Warning("Encoding canceled", video);
-			Directory.Delete(tempDir, true);
+			log.Warning("Encoding canceled {FilePath}", video.FullPath);
+			DeleteDirectory(tempDir);
 			return;
 		}
 		catch (Exception ex)
 		{
 			video.Status = CompressionStatus.FailedToCompress;
+			video.EncodingErrorMessage = ex.Message;
 			comm.Status.Status.OnNext(STR_ERROR);
-			log.Error("Prepare video failed", ex, video);
-			Directory.Delete(tempDir, true);
+			log.Error(ex, "Prepare video failed {FilePath}", video.FullPath);
+			DeleteDirectory(tempDir);
 			return;
 		}
 
@@ -128,8 +133,8 @@ public class VideoReencodeService(IAppSettings settings, LogMain log, LogFfmpeg 
 		{
 			video.Status = CompressionStatus.Original;
 			comm.Status.Status.OnNext("Canceled");
-			log.Warning("Encoding canceled", video);
-			Directory.Delete(tempDir, true);
+			log.Warning("Encoding canceled {FilePath}", video.FullPath);
+			DeleteDirectory(tempDir);
 			return;
 		}
 		else if (!result.Success)
@@ -145,61 +150,47 @@ public class VideoReencodeService(IAppSettings settings, LogMain log, LogFfmpeg 
 		// Step 3: Check DurationSeconds and TotalPixels
 		var originalInfo = await VideoProcessorService.GetMediaInfo(tempInputPath);
 		var compressedInfo = await VideoProcessorService.GetMediaInfo(tempOutputPath);
-		double? originalDuration = originalInfo?.Duration.TotalSeconds;
-		double? compressedDuration = compressedInfo?.Duration.TotalSeconds;
-		double? durationDiff = originalDuration != null && compressedDuration != null ? Math.Abs(originalDuration.Value - compressedDuration.Value) : null;
-		long? originalPixels = video.TotalPixels;
-		long? compressedPixels = compressedInfo?.VideoStreams.FirstOrDefault()?.Width * compressedInfo?.VideoStreams.FirstOrDefault()?.Height;
-		double? originalFps = originalInfo?.VideoStreams.FirstOrDefault()?.Framerate;
-		double? compressedFps = compressedInfo?.VideoStreams.FirstOrDefault()?.Framerate;
-		var originalCreationTime = new FileInfo(video.FullPath).CreationTime;
-		var originalLastWriteTime = new FileInfo(video.FullPath).LastWriteTime;
+		var compressedStream = compressedInfo?.VideoStreams.FirstOrDefault();
 		int originalBitDepth = originalInfo?.GetBitDepth() ?? VideoFile.BIT_DEPTH_UNKNOWN;
 		int compressedBitDepth = compressedInfo?.GetBitDepth() ?? VideoFile.BIT_DEPTH_UNKNOWN;
-		int? expectedBitDepth = VideoEncoder.GetExpectedOutputBitDepth(originalBitDepth);
-		double fpsTol = 2;
-		// Unreadable FPS is reported below as a media info failure, it must not trigger the slow full-file scan
-		bool hasFpsDiff = originalFps != null && compressedFps != null && Math.Abs(originalFps.Value - compressedFps.Value) > fpsTol;
-		(double min, double max) = hasFpsDiff ? await GetFpsRangeAsync(tempInputPath) : (0, 0);
+		var comparison = new EncodingComparison(
+			OriginalDuration: originalInfo?.Duration.TotalSeconds,
+			EncodedDuration: compressedInfo?.Duration.TotalSeconds,
+			OriginalPixels: video.TotalPixels,
+			EncodedPixels: compressedStream?.Width * compressedStream?.Height,
+			OriginalFps: originalInfo?.VideoStreams.FirstOrDefault()?.Framerate,
+			EncodedFps: compressedStream?.Framerate,
+			OriginalBitDepth: originalBitDepth,
+			EncodedBitDepth: compressedBitDepth,
+			ExpectedBitDepth: VideoEncoder.GetExpectedOutputBitDepth(originalBitDepth));
+		var originalCreationTime = new FileInfo(video.FullPath).CreationTime;
+		var originalLastWriteTime = new FileInfo(video.FullPath).LastWriteTime;
+		var fpsRange = comparison.NeedsFpsScan ? await GetFpsRangeAsync(tempInputPath) : (min: 0d, max: 0d);
+		string encodedPath = Path.Combine(video.DirectoryPath, GetEncodedFilename(video.Filename));
+		string? problem = comparison.FindProblem(fpsRange);
 
-		if (!result.Success)
+		if (problem != null)
 		{
-			WriteError($"{video.FullPath} | Failed to encode");
+			WriteError($"{video.FullPath} | {problem}");
 		}
-		else if (durationDiff == null || originalFps == null || compressedFps == null || originalPixels == null || compressedPixels == null)
+		else if (WouldOverwriteOtherFile(video.FullPath, encodedPath))
 		{
-			WriteError($"{video.FullPath} | Failed to read media info");
-		}
-		else if (durationDiff > 0.5)
-		{
-			WriteError($"{video.FullPath} | Duration difference is too big {durationDiff:F2} [s]");
-		}
-		else if (originalPixels != compressedPixels)
-		{
-			WriteError($"{video.FullPath} | Resolution has changed {originalPixels} / {compressedPixels}");
-		}
-		else if (hasFpsDiff && max - min < fpsTol)
-		{
-			WriteError($"{video.FullPath} | FPS has changed {originalFps.Value:F2} / {compressedFps.Value:F2}");
-		}
-		else if (expectedBitDepth != null && compressedBitDepth < expectedBitDepth)
-		{
-			WriteError($"{video.FullPath} | Bit depth has been reduced {originalBitDepth} / {compressedBitDepth}, expected {expectedBitDepth}");
+			WriteError($"{video.FullPath} | {encodedPath} already exists and would be overwritten");
 		}
 		else if (new FileInfo(tempInputPath).Length < new FileInfo(tempOutputPath).Length)
 		{
 			video.Status = CompressionStatus.Bigger;
 			comm.Status.Status.OnNext("Bigger than original, kept original");
 			log.Warning("New video is bigger than original {Video} {OriginalSize:F0} [MB] <  {NewSize:F0} [MB]", video.FullPath, new FileInfo(tempInputPath).Length / (1024 * 1024.0), new FileInfo(tempOutputPath).Length / (1024 * 1024.0));
-			Directory.Delete(tempDir, true);
+			DeleteDirectory(tempDir);
 		}
 		else
 		{
 			try
 			{
-				if (max - min > fpsTol)
+				if (EncodingComparison.IsVariableFrameRate(fpsRange))
 				{
-					log.Warning("{video} has originally a FPS between {min:F2} and {max:F2}", video.FullPath, min, max);
+					log.Warning("{video} has originally a FPS between {min:F2} and {max:F2}", video.FullPath, fpsRange.min, fpsRange.max);
 				}
 				string trashDir = GlobUtils.GetTrashDirectory(settings.TrashPath, settings.IndexerPath, video.DirectoryPath);
 
@@ -211,21 +202,21 @@ public class VideoReencodeService(IAppSettings settings, LogMain log, LogFfmpeg 
 				// Copy video to original location
 				await GlobUtils.CopyFileWithProgressAsync(tempOutputPath, tempOrigineOutputPath, comm.Status.EncodingPercent, CancellationToken.None); // Do not allow to cancel while all is done
 				File.Delete(video.FullPath);
-				video.Filename = Path.ChangeExtension(video.Filename, MP4_EXT);
+				video.Filename = Path.GetFileName(encodedPath);
 				File.Move(tempOrigineOutputPath, video.FullPath, true);
 				RestoreDate(video.FullPath, originalCreationTime, originalLastWriteTime);
 
 				// Trash and cleanup
 				Directory.CreateDirectory(trashDir);
 				File.Move(tempInputPath, trashPath, true);
-				Directory.Delete(tempDir, true);
+				DeleteDirectory(tempDir);
 
 				var newMediaInfo = await VideoProcessorService.GetMediaInfo(video.FullPath);
 				video.Sanity = newMediaInfo?.VideoIsSane() is true ? SanityStatus.EncodedOk : SanityStatus.EncodedKo;
 				video.BitDepth = newMediaInfo?.GetBitDepth() ?? VideoFile.BIT_DEPTH_UNKNOWN;
 				video.FileSizeCompressed = new FileInfo(video.FullPath).Length;
 				video.Status = CompressionStatus.Compressed;
-				video.LastModified = DateTime.Now;
+				video.LastModified = DateTime.UtcNow;
 				log.Information("New video successfully encoded {Video}, reduced of {CompressionFactor:F1}%", video.FullPath, Math.Round(video.CompressionFactor ?? 0d, 2));
 				comm.Status.Status.OnNext("Done");
 			}
@@ -269,6 +260,27 @@ public class VideoReencodeService(IAppSettings settings, LogMain log, LogFfmpeg 
 			video.EncodingErrorMessage = message;
 			File.WriteAllText(Path.Combine(tempDir, "error.txt"), text.ToString());
 		}
+	}
+
+	/// <summary>
+	/// Name of the re-encoded video, which is always an mp4.
+	/// </summary>
+	internal static string GetEncodedFilename(string filename) => Path.ChangeExtension(filename, MP4_EXT);
+
+	/// <summary>
+	/// True if writing the re-encoded video to <paramref name="newPath"/> would replace another file than the original,
+	/// such as an existing a.mp4 when re-encoding a.mkv.
+	/// </summary>
+	internal static bool WouldOverwriteOtherFile(string originalPath, string newPath)
+	{
+		var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+		return !string.Equals(Path.GetFullPath(originalPath), Path.GetFullPath(newPath), comparison) && File.Exists(newPath);
+	}
+
+	private static void DeleteDirectory(string path)
+	{
+		if (Directory.Exists(path))
+			Directory.Delete(path, true);
 	}
 
 	private static void RestoreDate(string fullPath, DateTime originalCreationTime, DateTime originalLastWriteTime)

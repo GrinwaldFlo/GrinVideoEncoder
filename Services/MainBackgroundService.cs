@@ -1,9 +1,12 @@
-using Serilog;
-
 namespace GrinVideoEncoder.Services;
 
 public class MainBackgroundService : BackgroundService
 {
+	/// <summary>
+	/// Number of files <see cref="CleanTrash"/> keeps in the trash.
+	/// </summary>
+	private const int TRASH_KEEP_COUNT = 100;
+
 	private readonly CommunicationService _communication;
 	private readonly LogMain _log;
 	private readonly IAppSettings _settings;
@@ -28,12 +31,18 @@ public class MainBackgroundService : BackgroundService
 	{
 		DirectoryInfo inputDir = new(_settings.InputPath);
 		FileInfo? file = null;
+		// A file that could not be moved out of the input folder must not be picked again forever
+		var triedFiles = new HashSet<string>(StringComparer.Ordinal);
 		_log.Information("Checking for existing files in {InputPath}", _settings.InputPath);
 		do
 		{
-			file = inputDir.GetFiles().OrderByDescending(f => f.LastWriteTime).FirstOrDefault();
+			file = inputDir.GetFiles()
+				.Where(f => !triedFiles.Contains(f.FullName))
+				.OrderByDescending(f => f.LastWriteTime)
+				.FirstOrDefault();
 			if (file != null)
 			{
+				triedFiles.Add(file.FullName);
 				await ProcessVideo(file.FullName);
 				await Task.Delay(10000, stoppingToken);
 			}
@@ -41,11 +50,11 @@ public class MainBackgroundService : BackgroundService
 
 		_watcher.Created += async (sender, e) => await ProcessVideo(e.FullPath);
 
-		Log.Information("Waiting for new files in {InputPath}", _settings.InputPath);
+		_log.Information("Waiting for new files in {InputPath}", _settings.InputPath);
 		while (!stoppingToken.IsCancellationRequested)
 		{
 			await Task.Delay(10000, stoppingToken);
-			CleanTrash();
+			CleanTrash(_settings.TrashPath, TRASH_KEEP_COUNT);
 		}
 	}
 
@@ -79,16 +88,16 @@ public class MainBackgroundService : BackgroundService
 	}
 
 	/// <summary>
-	/// Clean trash folder but keep last 2 files
+	/// Deletes the oldest files of the trash, keeping the <paramref name="keepCount"/> newest, then its empty folders.
 	/// </summary>
-	private void CleanTrash()
+	internal static void CleanTrash(string trashPath, int keepCount)
 	{
-		if (!Directory.Exists(_settings.TrashPath))
+		if (!Directory.Exists(trashPath))
 			return;
-		DirectoryInfo trashDir = new(_settings.TrashPath);
+		DirectoryInfo trashDir = new(trashPath);
 		var files = trashDir.GetFiles("*.*", SearchOption.AllDirectories)
 		.OrderByDescending(f => f.LastWriteTime)
-		.Skip(100)
+		.Skip(keepCount)
 		.ToArray();
 
 		foreach (var file in files)
@@ -102,12 +111,22 @@ public class MainBackgroundService : BackgroundService
 				Console.WriteLine($"Failed to delete file {file.FullName}: {ex.Message}");
 			}
 		}
-		CleanEmptySubFolders(_settings.TrashPath);
+		CleanEmptySubFolders(trashPath);
 	}
 
+	/// <summary>
+	/// Never throws: it runs in an async void event handler, where an exception would close the application.
+	/// </summary>
 	private async Task ProcessVideo(string filePath)
 	{
-		_communication.VideoProcessToken = new CancellationTokenSource();
-		await _videoProcessor.ProcessVideo(filePath, _communication);
+		try
+		{
+			_communication.VideoProcessToken = new CancellationTokenSource();
+			await _videoProcessor.ProcessVideo(filePath, _communication);
+		}
+		catch (Exception ex)
+		{
+			_log.Error(ex, "Failed to process {FilePath}", filePath);
+		}
 	}
 }

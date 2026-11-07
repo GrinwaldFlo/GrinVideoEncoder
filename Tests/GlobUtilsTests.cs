@@ -241,40 +241,40 @@ public class GlobUtilsTests : IDisposable
 	}
 
 	[Fact]
-	public void IsFileReady_ExistingFileWithContent_ReturnsTrue()
+	public void IsFileUnlocked_ExistingFileWithContent_ReturnsTrue()
 	{
 		string filePath = Path.Combine(_tempDir, "ready.txt");
 		File.WriteAllText(filePath, "some content");
 
-		Assert.True(GlobUtils.IsFileReady(filePath));
+		Assert.True(GlobUtils.IsFileUnlocked(filePath));
 	}
 
 	[Fact]
-	public void IsFileReady_NonExistentFile_ReturnsFalse()
+	public void IsFileUnlocked_NonExistentFile_ReturnsFalse()
 	{
 		string filePath = Path.Combine(_tempDir, "nonexistent.txt");
 
-		Assert.False(GlobUtils.IsFileReady(filePath));
+		Assert.False(GlobUtils.IsFileUnlocked(filePath));
 	}
 
 	[Fact]
-	public void IsFileReady_EmptyFile_ReturnsFalse()
+	public void IsFileUnlocked_EmptyFile_ReturnsTrue()
 	{
 		string filePath = Path.Combine(_tempDir, "empty.txt");
 		File.WriteAllText(filePath, "");
 
-		Assert.False(GlobUtils.IsFileReady(filePath));
+		Assert.True(GlobUtils.IsFileUnlocked(filePath));
 	}
 
 	[Fact]
-	public void IsFileReady_LockedFile_ReturnsFalse()
+	public void IsFileUnlocked_LockedFile_ReturnsFalse()
 	{
 		string filePath = Path.Combine(_tempDir, "locked.txt");
 		File.WriteAllText(filePath, "content");
 
 		using var stream = File.Open(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
 
-		Assert.False(GlobUtils.IsFileReady(filePath));
+		Assert.False(GlobUtils.IsFileUnlocked(filePath));
 	}
 
 	[Fact]
@@ -286,5 +286,56 @@ public class GlobUtilsTests : IDisposable
 		string result = GlobUtils.EnsureUniqueFilename(filePath);
 
 		Assert.Equal(Path.Combine(_tempDir, "README (1)"), result);
+	}
+
+	[Fact]
+	public async Task CopyFileWithProgressAsync_CopiesContentAndEndsAt100Percent()
+	{
+		string source = Path.Combine(_tempDir, "source.bin");
+		string destination = Path.Combine(_tempDir, "destination.bin");
+		byte[] content = new byte[(3 * 1024 * 1024) + 123];
+		Random.Shared.NextBytes(content);
+		File.WriteAllBytes(source, content);
+		var progress = new List<double?>();
+
+		await GlobUtils.CopyFileWithProgressAsync(source, destination, System.Reactive.Observer.Create<double?>(progress.Add), CancellationToken.None);
+
+		Assert.Equal(content, File.ReadAllBytes(destination));
+		Assert.Equal(100, progress[^1]!.Value, 3);
+		Assert.Equal(progress.OrderBy(p => p), progress);
+	}
+
+	[Fact]
+	public async Task CopyFileWithProgressAsync_EmptyFile_CreatesEmptyCopy()
+	{
+		string source = Path.Combine(_tempDir, "empty.bin");
+		string destination = Path.Combine(_tempDir, "copy.bin");
+		File.WriteAllBytes(source, []);
+
+		await GlobUtils.CopyFileWithProgressAsync(source, destination, System.Reactive.Observer.Create<double?>(_ => { }), CancellationToken.None);
+
+		Assert.Equal(0, new FileInfo(destination).Length);
+	}
+
+	[Fact]
+	public async Task CopyFileWithProgressAsync_Canceled_Throws()
+	{
+		string source = Path.Combine(_tempDir, "source.bin");
+		File.WriteAllBytes(source, new byte[1024]);
+
+		await Assert.ThrowsAnyAsync<OperationCanceledException>(() => GlobUtils.CopyFileWithProgressAsync(source, Path.Combine(_tempDir, "copy.bin"),
+			System.Reactive.Observer.Create<double?>(_ => { }), new CancellationToken(canceled: true)));
+	}
+
+	[Fact]
+	public void FindExecutableInPath_ExistingExecutable_ReturnsItsPath()
+	{
+		if (!OperatingSystem.IsLinux())
+			return;
+
+		string? path = GlobUtils.FindExecutableInPath("sh");
+
+		Assert.NotNull(path);
+		Assert.True(File.Exists(path));
 	}
 }

@@ -10,7 +10,8 @@ public partial class EventConsole
 	public const int MAX_LINES = 1000;
 	private readonly List<Message> _messages = [];
 
-	private readonly SemaphoreSlim _messagesSemaphore = new(1, 1);
+	// No await inside the lock: the render loop reads the messages while services log
+	private readonly Lock _messagesLock = new();
 
 	[Parameter(CaptureUnmatchedValues = true)]
 	public IDictionary<string, object> Attributes { get; set; } = null!;
@@ -21,31 +22,19 @@ public partial class EventConsole
 
 	public async Task Clear()
 	{
-		await _messagesSemaphore.WaitAsync();
-		try
-		{
+		lock (_messagesLock)
 			_messages.Clear();
-		}
-		finally
-		{
-			_messagesSemaphore.Release();
-		}
 
 		await InvokeAsync(StateHasChanged);
 	}
 
 	public async Task LogAsync(string message, AlertStyle alertStyle = AlertStyle.Info)
 	{
-		await _messagesSemaphore.WaitAsync();
-		try
+		lock (_messagesLock)
 		{
 			_messages.Add(new Message(message, null, alertStyle));
 			if (_messages.Count > MAX_LINES)
 				_messages.RemoveAt(0);
-		}
-		finally
-		{
-			_messagesSemaphore.Release();
 		}
 
 		await InvokeAsync(StateHasChanged);
@@ -59,15 +48,8 @@ public partial class EventConsole
 	// Helper method for the render loop to safely access messages
 	protected IReadOnlyList<Message> GetMessages()
 	{
-		_messagesSemaphore.WaitAsync();
-		try
-		{
+		lock (_messagesLock)
 			return [.. _messages];
-		}
-		finally
-		{
-			_messagesSemaphore.Release();
-		}
 	}
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)

@@ -159,7 +159,7 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log, Communi
 		FileNamer filename = new(settings, filePath);
 		try
 		{
-			bool prepareSuccess = await PrepareProcessing(filename);
+			bool prepareSuccess = await PrepareProcessing(filename, communication.VideoProcessToken.Token);
 
 			if (!prepareSuccess)
 				return;
@@ -195,6 +195,7 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log, Communi
 	/// <summary>
 	/// Waits until nothing writes to the file anymore. A file lock alone is not enough: on Linux, locks are advisory
 	/// and a copy in progress holds none, so the size and last write time must also stay the same for one poll delay.
+	/// An empty file that stays empty is ready too: waiting for content could block the drop folder forever.
 	/// </summary>
 	/// <returns>True when the file is ready, false if it disappeared or the wait was canceled.</returns>
 	internal static async Task<bool> WaitForFile(string filePath, TimeSpan pollDelay, CancellationToken token)
@@ -206,7 +207,7 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log, Communi
 			if (current is null)
 				return false;
 
-			if (current == previous && GlobUtils.IsFileReady(filePath))
+			if (current == previous && GlobUtils.IsFileUnlocked(filePath))
 				return true;
 
 			previous = current;
@@ -225,7 +226,7 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log, Communi
 	private void HandleProcessingError(FileNamer file, string errorMessage = "")
 	{
 		if (!string.IsNullOrEmpty(errorMessage))
-			log.Error(errorMessage, "Processing error");
+			log.Error("Processing error {InputPath}: {ErrorMessage}", file.InputPath, errorMessage);
 		if (File.Exists(file.TempPath))
 			File.Delete(file.TempPath);
 		if (File.Exists(file.TempFirstPassPath))
@@ -236,14 +237,15 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log, Communi
 		}
 	}
 
-	private async Task<bool> PrepareProcessing(FileNamer file)
+	/// <param name="token">Cancels the wait for the file, which can last as long as something writes to it.</param>
+	private async Task<bool> PrepareProcessing(FileNamer file, CancellationToken token)
 	{
 		try
 		{
 			log.Information("Waiting {FilePath} is ready", file.InputPath);
-			if (!await WaitForFile(file.InputPath, _fileReadyPollDelay, CancellationToken.None))
+			if (!await WaitForFile(file.InputPath, _fileReadyPollDelay, token))
 			{
-				log.Warning("{FilePath} disappeared before it could be processed", file.InputPath);
+				log.Warning("{FilePath} disappeared or was canceled before it could be processed", file.InputPath);
 				return false;
 			}
 
@@ -251,6 +253,10 @@ public class VideoProcessorService(IAppSettings settings, LogFfmpeg log, Communi
 			log.Information("Started processing {ProcessingPath}", file.ProcessingPath);
 
 			return true;
+		}
+		catch (OperationCanceledException)
+		{
+			log.Warning("Waiting for {FilePath} canceled", file.InputPath);
 		}
 		catch (Exception ex)
 		{

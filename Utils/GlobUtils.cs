@@ -3,23 +3,22 @@ namespace GrinVideoEncoder.Utils;
 public static class GlobUtils
 {
 	/// <summary>
-	/// Checks if the specified file is ready for reading.
+	/// Checks that no other process holds the file open, by opening it exclusively.
+	/// An empty file can be unlocked: whether it is still being written is told by <see cref="FileSnapshot"/>.
 	/// </summary>
 	/// <param name="filePath">The path to the file to check.</param>
-	/// <returns>True if the file is ready for reading, otherwise false.</returns>
-	public static bool IsFileReady(string filePath)
+	/// <returns>True if the file exists and could be opened exclusively, otherwise false.</returns>
+	public static bool IsFileUnlocked(string filePath)
 	{
 		try
 		{
 			using var stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.None);
-			if (stream.Length > 0)
-				return true;
+			return true;
 		}
 		catch
 		{
-			// Do nothing
+			return false;
 		}
-		return false;
 	}
 
 	public static string EnsureUniqueFilename(string filePath)

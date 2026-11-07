@@ -6,8 +6,9 @@ using Microsoft.EntityFrameworkCore;
 namespace Tests;
 
 /// <summary>
-/// Uses a temporary database through the static <see cref="VideoDbContext.DbPath"/>, which no other test class sets.
+/// Uses a temporary database through the static <see cref="VideoDbContext.DbPath"/>.
 /// </summary>
+[Collection(DatabaseCollection.NAME)]
 public class VideoDbContextRelocationTests : IDisposable
 {
 	private readonly string _tempDir;

@@ -133,10 +133,12 @@ public partial class VideoEncoder(int qualityLevel, LogFfmpeg log, BehaviorSubje
 	[System.Text.RegularExpressions.GeneratedRegex(@"time=(\d{2}):(\d{2}):(\d{2}\.\d{2})")]
 	private static partial System.Text.RegularExpressions.Regex FindTimeSpandRegex();
 
-	private void OnNewDataReceived(GpuVendor gpuType, TimeSpan totalTime, string? data, CancellationTokenSource videoCts)
+	internal string FailReason => _failReason;
+
+	internal void OnNewDataReceived(GpuVendor gpuType, TimeSpan totalTime, string? data, CancellationTokenSource videoCts)
 	{
 		var curTimespan = ParseFfmpegToTimeSpan(data);
-		if (curTimespan == null)
+		if (curTimespan == null || totalTime <= TimeSpan.Zero)
 		{
 			encodingPercent.OnNext(null);
 		}
@@ -174,7 +176,7 @@ public partial class VideoEncoder(int qualityLevel, LogFfmpeg log, BehaviorSubje
 		var audioStreams = mediaInfo.AudioStreams;
 		var subtitleStreams = mediaInfo.SubtitleStreams;
 
-		if (!outputPath.EndsWith(".mp4"))
+		if (!outputPath.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase))
 			return new EncodingResult(false, "Please provide an mp4 file", ResultReason.Misconfiguration);
 
 		var conversion = FFmpeg.Conversions.New()
